@@ -272,3 +272,77 @@ def test_exclusion_can_be_turned_off(store):
 def test_excluded_matches_whole_segments(key, expected):
     from blobmap import excluded
     assert excluded(key) is expected
+
+
+# -- scale -----------------------------------------------------------------
+
+def many_chunks(store, n: int, scope: str = "s") -> None:
+    """A store shaped like HEALPix hourly data: one chunk per timestep."""
+    meta = {"zarr_format": 2, "shape": [n, 3_145_728],
+            "chunks": [1, 3_145_728], "dtype": "<f4", "compressor": None,
+            "fill_value": 0, "order": "C", "filters": None,
+            "dimension_separator": "/"}
+    obs.put(store, f"{scope}/.zgroup", b'{"zarr_format": 2}')
+    obs.put(store, f"{scope}/t2m/.zarray", json.dumps(meta).encode())
+    obs.put(store, f"{scope}/t2m/.zattrs",
+            b'{"_ARRAY_DIMENSIONS": ["time", "cell"]}')
+    for i in range(n):
+        obs.put(store, f"{scope}/t2m/{i}/0", b"\0" * 8)
+
+
+def test_memory_does_not_scale_with_object_count(store):
+    """Holding every listed object cost ~200 bytes each, so a store with
+    millions of chunks consumed gigabytes and looked like a hang. The listing
+    is streamed instead, twice, so memory tracks the number of arrays."""
+    import tracemalloc
+
+    peaks = []
+    for n in (2_000, 8_000):
+        many_chunks(store, n, scope=f"s{n}")
+        tracemalloc.start()
+        arrays = read_arrays(store, f"s{n}")
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        assert arrays[0].nobjects_seen == n
+        peaks.append(peak)
+
+    # 4x the objects must not mean 4x the memory
+    assert peaks[1] < peaks[0] * 2, f"peaks scaled: {peaks}"
+
+
+def test_progress_is_logged_for_large_stores(store, caplog, monkeypatch):
+    """A silent multi-minute walk is indistinguishable from a hang."""
+    import blobmap.hierarchy as h
+    monkeypatch.setattr(h, "PROGRESS_EVERY", 100)
+    many_chunks(store, 250)
+    with caplog.at_level("INFO"):
+        read_arrays(store, "s")
+    assert "objects listed" in caplog.text
+    assert "objects sized" in caplog.text
+
+
+# -- ambiguous key encodings ----------------------------------------------
+
+def test_one_dimensional_keys_do_not_override_metadata(store, caplog):
+    """`cell/0` is what both v2 encodings produce for a single-chunk 1-D
+    array, so it is not evidence of either. Overriding on that basis produced
+    a warning for every coordinate in a HEALPix store."""
+    write_store(store, "s", [coordinate("cell", 12), coordinate("time", 40)],
+                zarr_format=2, separator=".")
+    with caplog.at_level("WARNING"):
+        arrays = {a.path: a for a in read_arrays(store, "s")}
+    assert arrays["cell"].key_encoding == "v2_flat"
+    assert "keys look like" not in caplog.text
+
+
+def test_multidimensional_keys_still_override_metadata(store, caplog):
+    """With more than one dimension, `0/0` versus `0.0` is decisive, and a
+    store that lies about its own separator would misroute every chunk."""
+    write_store(store, "s", basic(), zarr_format=2, separator="/")
+    meta = json.loads(bytes(obs.get(store, "s/tas/.zarray").bytes()))
+    meta["dimension_separator"] = "."
+    obs.put(store, "s/tas/.zarray", json.dumps(meta).encode())
+    with caplog.at_level("WARNING"):
+        arrays = {a.path: a for a in read_arrays(store, "s")}
+    assert arrays["tas"].key_encoding == "v2_slash"
+    assert "keys look like" in caplog.text

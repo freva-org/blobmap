@@ -127,6 +127,7 @@ truncated aggressively once both consumers have passed a point.
 | `open_zarr` hangs | a metadata object or coordinate got archived; this should be impossible, check `hot_always` in the manifest |
 | restores are slow and frequent | blobs are too small, or the cut does not match how people read |
 | event table growing without bound | no retention policy |
+| `scan --partition` appears to hang on one store | it is walking millions of chunk objects. Run with `-v` to see progress every 100k objects. A HEALPix store at zoom 9 legitimately takes minutes |
 | `stale chunks ... will skew sizing` in the log | objects exist outside the declared chunk grid, left over from an append or rechunk. The width was chosen from a wrong average; clean up or repartition with `--force` |
 
 ## Recovering

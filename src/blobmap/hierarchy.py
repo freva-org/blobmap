@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Sequence
 
 from .model import METADATA_BASENAMES, Array
-from .storage import Entry, Store, get_bytes, list_all, list_names
+from .storage import Store, get_bytes, list_all, list_names
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +53,12 @@ V2_ATTRS = ".zattrs"
 #: walk. Left in, staging objects inside a store prefix would be counted into
 #: an array's size and skew the chosen bucket width.
 DEFAULT_EXCLUDE: tuple[str, ...] = (".sgwtmp", ".versitygw", ".snapshot")
+
+#: Log progress every this many objects.
+#:
+#: A store with millions of chunks takes minutes to walk. Without this the
+#: command looks hung, which is indistinguishable from being hung.
+PROGRESS_EVERY = 100_000
 
 _ITEMSIZE: dict[str, int] = {
     "bool": 1, "int8": 1, "uint8": 1, "int16": 2, "uint16": 2, "float16": 2,
@@ -166,6 +172,15 @@ def read_arrays(store: Store, scope: str, *,
             when scanning a gateway's backing filesystem, which exposes
             staging directories the S3 API hides.
 
+    Note:
+        The listing is walked twice: once for metadata keys, once to
+        accumulate sizes. That keeps memory proportional to the number of
+        arrays rather than the number of objects, which matters at HEALPix
+        scale where a single store holds millions of chunks. It also means the
+        two passes could disagree if the store is written concurrently; an
+        object appearing between them is reported as belonging to no array.
+        Debouncing before partitioning is what avoids that.
+
     Returns:
         One [`Array`][blobmap.model.Array] per array found, sorted by path.
         Arrays whose metadata cannot be read are skipped with a warning
@@ -180,19 +195,27 @@ def read_arrays(store: Store, scope: str, *,
         tiering.
     """
     prefix = _prefix(scope)
-    metadata_keys: list[str] = []
-    data: list[Entry] = []
 
+    # Pass one keeps only metadata keys. Retaining every data entry costs
+    # roughly 200 bytes each, which for a HEALPix store at zoom 9 is hundreds
+    # of megabytes to gigabytes -- and looks like a hang rather than a
+    # slowdown, because nothing is printed while it accumulates.
+    metadata_keys: list[str] = []
+    seen = 0
     for entry in list_all(store, prefix):
+        seen += 1
+        if seen % PROGRESS_EVERY == 0:
+            log.info("%s: %d objects listed, %d metadata", scope or ".",
+                     seen, len(metadata_keys))
         if excluded(_relative(entry.key, prefix), exclude):
             continue
         if posixpath.basename(entry.key) in METADATA_BASENAMES:
             metadata_keys.append(entry.key)
-        else:
-            data.append(entry)
 
     if not metadata_keys:
         raise NotAZarrStore(f"{scope}: no zarr metadata found")
+    log.debug("%s: %d objects, %d metadata objects", scope or ".", seen,
+              len(metadata_keys))
 
     # v2 keeps attributes in a separate .zattrs object, so _ARRAY_DIMENSIONS
     # is invisible unless we read it. Without this every v2 coordinate looks
@@ -219,11 +242,22 @@ def read_arrays(store: Store, scope: str, *,
             meta = {**meta, "attributes": attributes[root]}
         arrays[root] = meta
 
-    # assign every data object to the deepest array root above it
+    # Pass two streams the listing again, accumulating per array rather than
+    # per object, so memory is bounded by the number of arrays. Two walks cost
+    # less than holding the first one.
     nodes: dict[str, _Node] = {root: _Node() for root in arrays}
     unassigned = 0
-    for entry in data:
-        owner = _owner(_relative(entry.key, prefix), nodes)
+    counted = 0
+    for entry in list_all(store, prefix):
+        relative = _relative(entry.key, prefix)
+        if excluded(relative, exclude):
+            continue
+        if posixpath.basename(entry.key) in METADATA_BASENAMES:
+            continue
+        counted += 1
+        if counted % PROGRESS_EVERY == 0:
+            log.info("%s: %d objects sized", scope or ".", counted)
+        owner = _owner(relative, nodes)
         if owner is None:
             unassigned += 1
             continue
@@ -231,7 +265,7 @@ def read_arrays(store: Store, scope: str, *,
         node.stored_bytes += entry.size
         node.nobjects += 1
         if len(node.sample_keys) < 4:
-            node.sample_keys.append(_relative(entry.key, prefix))
+            node.sample_keys.append(relative)
     if unassigned:
         log.warning("%s: %d objects belong to no array; they will resolve as "
                     "unmanaged and stay hot", scope, unassigned)
@@ -312,7 +346,7 @@ def _to_array(root: str, meta: dict[str, Any], node: _Node) -> Array | None:
         log.warning("%s: unreadable array metadata (%s)", root or ".", exc)
         return None
 
-    observed = _observed_encoding(root, node.sample_keys)
+    observed = _observed_encoding(root, node.sample_keys, len(shape))
     if observed and observed != encoding:
         # trust the keys: foreign stores do not always match their own
         # declared metadata, and a wrong encoding silently misroutes chunks
@@ -352,25 +386,44 @@ def _v3_encoding(meta: dict[str, Any]) -> str:
     return "v3_slash"
 
 
-def _observed_encoding(root: str, samples: list[str]) -> str | None:
+def _observed_encoding(root: str, samples: list[str], ndim: int) -> str | None:
     """Infer the key encoding from keys that actually exist.
+
+    Only decisive evidence counts. For a one-dimensional array the two v2
+    encodings are *indistinguishable* -- `cell/0` is what both produce -- so
+    inferring from a bare digit would override correct metadata on the basis
+    of nothing. That needs more than one dimension to be a real observation.
 
     Args:
         root: Array path relative to the scope.
         samples: A few of the array's data keys.
+        ndim: Number of dimensions, used to tell an ambiguous key from an
+            informative one.
 
     Returns:
-        The inferred encoding, or `None` when the samples are inconclusive,
-        for instance because the array has not been written yet.
+        The inferred encoding, or `None` when the samples cannot distinguish
+        one, including when the array has not been written yet.
+
+    Example:
+        >>> _observed_encoding("tas", ["tas/c/0/0"], 2)
+        'v3_slash'
+        >>> _observed_encoding("tas", ["tas/0.0"], 2)
+        'v2_flat'
+        >>> _observed_encoding("tas", ["tas/0/0"], 2)
+        'v2_slash'
+        >>> _observed_encoding("cell", ["cell/0"], 1) is None
+        True
     """
     for key in samples:
         rest = key[len(root):].strip("/") if root else key
         head = rest.split("/")[0]
         if head == "c":
             return "v3_slash"
-        if head.replace(".", "").isdigit() and "." in head:
+        if "." in head and head.replace(".", "").isdigit():
             return "v2_flat"
-        if head.isdigit():
+        if ndim > 1 and head.isdigit():
+            # a multi-dimensional array with a bare digit segment must be
+            # nesting the remaining indices
             return "v2_slash"
     return None
 

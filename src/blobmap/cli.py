@@ -18,7 +18,7 @@ import json
 import logging
 import math
 import sys
-from typing import Sequence
+from typing import Any, Sequence
 
 from .backends import S3Options, StoreUnreachable, diagnose, open_store
 from .discover import scan
@@ -96,10 +96,8 @@ def explain(arrays: Sequence[Array], manifest: Manifest) -> str:
         column means nothing claims that array, so it will stay hot.
     """
     by_prefix = {p: b for b in manifest.blobs for p in b.prefixes}
-    lines = [
-        f"{'array':14} {'objects':>9} {'stored':>11} {'object':>11}  blob",
-        "-" * 80,
-    ]
+    lines = [f"{'array':14} {'objects':>9} {'stored':>11} {'object':>11}  blob",
+             "-" * 80]
     for a in sorted(arrays, key=lambda x: x.path):
         blob = by_prefix.get(a.chunk_prefix) or by_prefix.get("")
         if a.is_coordinate or a.total_bytes < manifest.policy.t_hot_bytes:
@@ -109,17 +107,13 @@ def explain(arrays: Sequence[Array], manifest: Manifest) -> str:
         elif blob.bucket is not None:
             width = blob.bucket.width
             n = math.ceil(a.object_grid[0] / width)
-            where = (
-                f"{blob.id}_0..{n - 1}  (width={width}, "
-                f"~{human(width * a.avg_object_bytes)}/blob)"
-            )
+            where = (f"{blob.id}_0..{n - 1}  (width={width}, "
+                     f"~{human(width * a.avg_object_bytes)}/blob)")
         else:
             where = f"{blob.id}_0"
-        lines.append(
-            f"{a.path or '.':14} {a.nobjects:>9} "
-            f"{human(a.total_bytes):>11} "
-            f"{human(a.avg_object_bytes):>11}  {where}"
-        )
+        lines.append(f"{a.path or '.':14} {a.nobjects:>9} "
+                     f"{human(a.total_bytes):>11} "
+                     f"{human(a.avg_object_bytes):>11}  {where}")
     return "\n".join(lines)
 
 
@@ -139,185 +133,128 @@ def build_parser() -> argparse.ArgumentParser:
             "  blobmap --data s3://cordex --manifests s3://waterpark-blobmap \\\n"
             "      partition nukleus/eur11.zarr --t-max 50GiB --dry-run\n"
             "  blobmap --data file:///work --manifests file:///work/.blobmap \\\n"
-            "      resolve eur11.zarr/tas/c/5000/0/0\n"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+            "      resolve eur11.zarr/tas/c/5000/0/0\n"),
+        formatter_class=argparse.RawDescriptionHelpFormatter)
 
     p.add_argument(
-        "--data",
-        metavar="URL",
+        "--data", metavar="URL",
         help="where the zarr data lives: s3://cordex, or a path such as "
-        "/work/data or ./data. Read only; blobmap never writes here, "
-        "which is what lets it manage data you must not alter. Must "
-        "already exist. Required for every command except schema.",
-    )
+             "/work/data or ./data. Read only; blobmap never writes here, "
+             "which is what lets it manage data you must not alter. Must "
+             "already exist. Required for every command except schema.")
     p.add_argument(
-        "--manifests",
-        metavar="URL",
+        "--manifests", metavar="URL",
         help="where blob definitions are written: s3://waterpark-blobmap, or "
-        "a path such as /work/blobmap. Keys mirror the data paths. Must "
-        "be writable; a local directory is created if missing. Required "
-        "for every command except schema.",
-    )
+             "a path such as /work/blobmap. Keys mirror the data paths. Must "
+             "be writable; a local directory is created if missing. Required "
+             "for every command except schema.")
     p.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="log at DEBUG, including skipped prefixes during a scan.",
-    )
+        "-v", "--verbose", action="store_true",
+        help="log at DEBUG, including skipped prefixes during a scan.")
     p.add_argument(
-        "--exclude",
-        metavar="SEGMENT",
-        action="append",
-        default=None,
+        "--exclude", metavar="SEGMENT", action="append", default=None,
         help="path segment to skip, repeatable. Defaults to "
-        + ", ".join(DEFAULT_EXCLUDE)
-        + ". Relevant when --data points at "
-        "an S3 gateway's backing filesystem rather than its S3 endpoint: "
-        "a directory walk sees staging directories the S3 API hides, and "
-        "staging objects inside a store would be counted into an array's "
-        "size. Pass an empty value to exclude nothing.",
-    )
+             + ", ".join(DEFAULT_EXCLUDE) + ". Relevant when --data points at "
+             "an S3 gateway's backing filesystem rather than its S3 endpoint: "
+             "a directory walk sees staging directories the S3 API hides, and "
+             "staging objects inside a store would be counted into an array's "
+             "size. Pass an empty value to exclude nothing.")
 
     s3 = p.add_argument_group(
         "s3 options",
         "Only needed for s3:// URLs. Each falls back to the matching AWS_* "
         "environment variable. With none of them set and no credentials in "
         "the environment, obstore assumes AWS and hangs looking for instance "
-        "credentials.",
-    )
+        "credentials.")
     s3.add_argument(
-        "--endpoint",
-        metavar="URL",
+        "--endpoint", metavar="URL",
         help="S3 endpoint, e.g. https://s3.example.org. Required for any "
-        "gateway that is not AWS. Env: AWS_ENDPOINT_URL.",
-    )
+             "gateway that is not AWS. Env: AWS_ENDPOINT_URL.")
     s3.add_argument(
-        "--region",
-        metavar="NAME",
+        "--region", metavar="NAME",
         help="region name. Defaults to us-east-1, which most on-premise "
-        "gateways accept regardless. Env: AWS_REGION.",
-    )
+             "gateways accept regardless. Env: AWS_REGION.")
     s3.add_argument(
-        "--anonymous",
-        action="store_true",
+        "--anonymous", action="store_true",
         help="do not sign requests or look for credentials. For public "
-        "buckets. Env: AWS_SKIP_SIGNATURE.",
-    )
+             "buckets. Env: AWS_SKIP_SIGNATURE.")
     s3.add_argument(
-        "--allow-http",
-        action="store_true",
+        "--allow-http", action="store_true",
         help="permit an unencrypted http endpoint. Implied when --endpoint "
-        "already starts with http://.",
-    )
+             "already starts with http://.")
     s3.add_argument(
-        "--virtual-hosted",
-        action="store_true",
+        "--virtual-hosted", action="store_true",
         help="use bucket.host addressing instead of host/bucket. Most "
-        "on-premise gateways want this off, which is the default.",
-    )
+             "on-premise gateways want this off, which is the default.")
 
     sub = p.add_subparsers(dest="cmd", required=True, metavar="COMMAND")
 
     q = sub.add_parser(
-        "partition",
-        help="partition or repartition one store",
+        "partition", help="partition or repartition one store",
         description="Compute blob definitions for one scope and write the "
-        "manifest. Repartitioning is additive: existing blobs "
-        "are pinned, so ids and the tape addresses behind them "
-        "survive.",
-    )
+                    "manifest. Repartitioning is additive: existing blobs "
+                    "are pinned, so ids and the tape addresses behind them "
+                    "survive.")
     q.add_argument(
-        "scope",
-        metavar="SCOPE",
-        help="prefix to partition, relative to --data, e.g. nukleus/eur11.zarr",
-    )
+        "scope", metavar="SCOPE",
+        help="prefix to partition, relative to --data, e.g. "
+             "nukleus/eur11.zarr")
     q.add_argument(
-        "--t-max",
-        type=parse_size,
-        metavar="SIZE",
+        "--t-max", type=parse_size, metavar="SIZE",
         help="target upper bound for one blob, e.g. 100GiB. Defaults to the "
-        "previous manifest's policy, or 100GiB on a first run. Note that "
-        "on an already partitioned store this only affects newly cut "
-        "regions: existing cuts are frozen.",
-    )
+             "previous manifest's policy, or 100GiB on a first run. Note that "
+             "on an already partitioned store this only affects newly cut "
+             "regions: existing cuts are frozen.")
     q.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="print the decision table and the diff, write nothing.",
-    )
+        "--dry-run", action="store_true",
+        help="print the decision table and the diff, write nothing.")
     q.add_argument(
-        "--force",
-        action="store_true",
+        "--force", action="store_true",
         help="recompute from scratch instead of pinning existing blobs. This "
-        "is the only operation that can move or drop a blob, orphaning "
-        "any tape copy held against its id. It logs what it broke.",
-    )
+             "is the only operation that can move or drop a blob, orphaning "
+             "any tape copy held against its id. It logs what it broke.")
 
     s = sub.add_parser(
-        "scan",
-        help="find zarr stores under a prefix",
+        "scan", help="find zarr stores under a prefix",
         description="Walk --data and report every zarr store, marking which "
-        "already have a manifest. Descent stops at a store "
-        "boundary.",
-    )
+                    "already have a manifest. Descent stops at a store "
+                    "boundary.")
     s.add_argument(
-        "root",
-        nargs="?",
-        default="",
-        metavar="PREFIX",
-        help="prefix to scan under, relative to --data. Default: everything.",
-    )
+        "root", nargs="?", default="", metavar="PREFIX",
+        help="prefix to scan under, relative to --data. Default: everything.")
     s.add_argument(
-        "--partition",
-        action="store_true",
-        help="also partition every store found that has no manifest yet.",
-    )
+        "--partition", action="store_true",
+        help="also partition every store found that has no manifest yet.")
     s.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="with --partition, compute but write nothing.",
-    )
+        "--dry-run", action="store_true",
+        help="with --partition, compute but write nothing.")
 
     r = sub.add_parser(
-        "resolve",
-        help="map object keys to blob ids",
+        "resolve", help="map object keys to blob ids",
         description="Load every manifest and resolve keys against them. The "
-        "fastest way to check that a store is partitioned the "
-        "way you think it is.",
-    )
+                    "fastest way to check that a store is partitioned the "
+                    "way you think it is.")
     r.add_argument(
-        "keys",
-        nargs="+",
-        metavar="KEY",
+        "keys", nargs="+", metavar="KEY",
         help="object keys to resolve, including the scope prefix, e.g. "
-        "nukleus/eur11.zarr/tas/c/5000/0/0. Prints the blob id, or "
-        "'hot' for a metadata object or pinned coordinate, or "
-        "'unmanaged' when nothing claims the key.",
-    )
+             "nukleus/eur11.zarr/tas/c/5000/0/0. Prints the blob id, or "
+             "'hot' for a metadata object or pinned coordinate, or "
+             "'unmanaged' when nothing claims the key.")
 
     sub.add_parser(
-        "show",
-        help="list known scopes and epochs",
-        description="One line per manifest: epoch, blob count and scope.",
-    )
+        "show", help="list known scopes and epochs",
+        description="One line per manifest: epoch, blob count and scope.")
 
     sub.add_parser(
-        "schema",
-        help="print the manifest JSON Schema",
+        "schema", help="print the manifest JSON Schema",
         description="Write the schema to stdout. This is the contract for "
-        "any consumer, including ones not written in Python.",
-    )
+                    "any consumer, including ones not written in Python.")
     return p
 
 
-def main(
-    argv: Sequence[str] | None = None,
-    *,
-    data: Store | None = None,
-    manifests: Store | None = None,
-) -> int:
+def main(argv: Sequence[str] | None = None, *,
+         data: Store | None = None,
+         manifests: Store | None = None) -> int:
     """Entry point.
 
     Args:
@@ -330,20 +267,20 @@ def main(
         Process exit code.
     """
     args = build_parser().parse_args(argv)
-    logging.basicConfig(
-        format="%(levelname)s: %(message)s",
-        level=logging.DEBUG if args.verbose else logging.INFO,
-    )
+    logging.basicConfig(format="%(levelname)s: %(message)s",
+                        level=logging.DEBUG if args.verbose else logging.INFO)
 
     if args.cmd == "schema":
         print(json.dumps(SCHEMA, indent=2))
         return 0
 
-    missing = [name for name in ("data", "manifests") if getattr(args, name) is None]
+    missing = [name for name in ("data", "manifests")
+               if getattr(args, name) is None]
     if missing:
         names = " and ".join(f"--{name}" for name in missing)
         verb = "are" if len(missing) > 1 else "is"
-        print(f"error: {names} {verb} required for {args.cmd}", file=sys.stderr)
+        print(f"error: {names} {verb} required for {args.cmd}",
+              file=sys.stderr)
         return 2
 
     options = S3Options(
@@ -359,10 +296,8 @@ def main(
         # found, which looks identical to an empty bucket.
         data = data if data is not None else open_store(args.data, options)
         store = ManifestStore(
-            manifests
-            if manifests is not None
-            else open_store(args.manifests, options, create=True)
-        )
+            manifests if manifests is not None
+            else open_store(args.manifests, options, create=True))
     except StoreUnreachable as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -375,13 +310,14 @@ def main(
     except Exception as exc:  # noqa: BLE001 - backend errors are opaque
         message = diagnose(args.data, exc)
         if message.endswith(str(exc)) and not args.verbose:
-            raise  # nothing useful to add, show the trace
+            raise                      # nothing useful to add, show the trace
         print(message, file=sys.stderr)
         log.debug("underlying error", exc_info=True)
         return 2
 
 
-def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> int:
+def _dispatch(args: argparse.Namespace, data: Store,
+              store: ManifestStore) -> int:
     """Run the selected subcommand.
 
     Args:
@@ -393,39 +329,36 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
         Process exit code.
     """
 
-    exclude = (
-        DEFAULT_EXCLUDE if args.exclude is None else tuple(e for e in args.exclude if e)
-    )
+    exclude = DEFAULT_EXCLUDE if args.exclude is None \
+        else tuple(e for e in args.exclude if e)
 
     if args.cmd == "partition":
         policy = Policy(t_max_bytes=args.t_max) if args.t_max else None
-        result = partition_store(
-            data,
-            store,
-            args.scope,
-            policy=policy,
-            force=args.force,
-            dry_run=args.dry_run,
-            exclude=exclude,
-        )
-        print(explain(read_arrays(data, args.scope, exclude=exclude), result.manifest))
+        result = partition_store(data, store, args.scope, policy=policy,
+                                 force=args.force, dry_run=args.dry_run,
+                                 exclude=exclude)
+        print(explain(read_arrays(data, args.scope, exclude=exclude),
+                      result.manifest))
         print()
         print(result.diff.describe())
-        print(
-            f"\nepoch {result.manifest.epoch}, "
-            f"{'written' if result.written else 'not written'}"
-        )
+        print(f"\nepoch {result.manifest.epoch}, "
+              f"{'written' if result.written else 'not written'}")
 
     elif args.cmd == "scan":
         for candidate in scan(data, args.root, store, exclude=exclude):
-            print(
-                f"{'ok ' if candidate.has_manifest else 'NEW'} "
-                f"{candidate.fmt}  {candidate.scope}"
-            )
+            mark = "ok " if candidate.has_manifest else "NEW"
+            print(f"{mark} {candidate.fmt}  {candidate.scope}", flush=True)
             if args.partition and not candidate.has_manifest:
-                partition_store(
-                    data, store, candidate.scope, dry_run=args.dry_run, exclude=exclude
-                )
+                # a store with millions of chunks takes minutes to walk, so
+                # say what is being worked on before starting
+                print(f"    partitioning {candidate.scope} ...",
+                      end="", flush=True)
+                result = partition_store(data, store, candidate.scope,
+                                         dry_run=args.dry_run,
+                                         exclude=exclude)
+                print(f" {len(result.manifest.blobs)} blobs"
+                      f"{'' if result.written else ' (not written)'}",
+                      flush=True)
 
     elif args.cmd == "resolve":
         trie = Trie()
@@ -439,10 +372,8 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
 
     elif args.cmd == "show":
         for manifest in sorted(store.load_all(), key=lambda m: m.scope):
-            print(
-                f"epoch {manifest.epoch:>4}  {len(manifest.blobs):>3} blobs  "
-                f"{manifest.scope}"
-            )
+            print(f"epoch {manifest.epoch:>4}  {len(manifest.blobs):>3} blobs  "
+                  f"{manifest.scope}")
 
     return 0
 
