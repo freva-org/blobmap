@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Sequence
 
-from .hierarchy import read_arrays
+from .hierarchy import DEFAULT_EXCLUDE, read_arrays
 from .manifests import ManifestStore
 from .model import Manifest, Policy
 from .partition import Diff, diff, partition
@@ -57,6 +58,7 @@ def partition_store(
     policy: Policy | None = None,
     force: bool = False,
     dry_run: bool = False,
+    exclude: Sequence[str] = DEFAULT_EXCLUDE,
 ) -> Result:
     """Partition or repartition one scope.
 
@@ -80,6 +82,8 @@ def partition_store(
         force: Recompute from scratch, ignoring existing blobs. Can orphan
             tape copies, and logs what it moved.
         dry_run: Compute and return, writing nothing.
+        exclude: Path segments to skip, defaulting to
+            `DEFAULT_EXCLUDE`.
 
     Returns:
         A [`Result`][blobmap.service.Result].
@@ -105,7 +109,7 @@ def partition_store(
     stored = manifests.read(scope)
     previous = stored.manifest if stored else None
 
-    arrays = read_arrays(data, scope)
+    arrays = read_arrays(data, scope, exclude=exclude)
     manifest = partition(
         scope, arrays, policy=policy, previous=None if force else previous
     )

@@ -14,6 +14,7 @@ Example:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import math
 import sys
@@ -21,10 +22,11 @@ from typing import Sequence
 
 from .backends import S3Options, StoreUnreachable, diagnose, open_store
 from .discover import scan
-from .hierarchy import read_arrays
+from .hierarchy import DEFAULT_EXCLUDE, read_arrays
 from .manifests import ManifestStore
 from .model import GiB, Array, Manifest, Policy
 from .resolve import Trie
+from .schema import SCHEMA
 from .service import partition_store
 from .storage import Store
 
@@ -144,26 +146,38 @@ def build_parser() -> argparse.ArgumentParser:
 
     p.add_argument(
         "--data",
-        required=True,
         metavar="URL",
         help="where the zarr data lives: s3://cordex, or a path such as "
         "/work/data or ./data. Read only; blobmap never writes here, "
         "which is what lets it manage data you must not alter. Must "
-        "already exist.",
+        "already exist. Required for every command except schema.",
     )
     p.add_argument(
         "--manifests",
-        required=True,
         metavar="URL",
         help="where blob definitions are written: s3://waterpark-blobmap, or "
         "a path such as /work/blobmap. Keys mirror the data paths. Must "
-        "be writable; a local directory is created if missing.",
+        "be writable; a local directory is created if missing. Required "
+        "for every command except schema.",
     )
     p.add_argument(
         "-v",
         "--verbose",
         action="store_true",
         help="log at DEBUG, including skipped prefixes during a scan.",
+    )
+    p.add_argument(
+        "--exclude",
+        metavar="SEGMENT",
+        action="append",
+        default=None,
+        help="path segment to skip, repeatable. Defaults to "
+        + ", ".join(DEFAULT_EXCLUDE)
+        + ". Relevant when --data points at "
+        "an S3 gateway's backing filesystem rather than its S3 endpoint: "
+        "a directory walk sees staging directories the S3 API hides, and "
+        "staging objects inside a store would be counted into an array's "
+        "size. Pass an empty value to exclude nothing.",
     )
 
     s3 = p.add_argument_group(
@@ -288,6 +302,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="list known scopes and epochs",
         description="One line per manifest: epoch, blob count and scope.",
     )
+
+    sub.add_parser(
+        "schema",
+        help="print the manifest JSON Schema",
+        description="Write the schema to stdout. This is the contract for "
+        "any consumer, including ones not written in Python.",
+    )
     return p
 
 
@@ -313,6 +334,17 @@ def main(
         format="%(levelname)s: %(message)s",
         level=logging.DEBUG if args.verbose else logging.INFO,
     )
+
+    if args.cmd == "schema":
+        print(json.dumps(SCHEMA, indent=2))
+        return 0
+
+    missing = [name for name in ("data", "manifests") if getattr(args, name) is None]
+    if missing:
+        names = " and ".join(f"--{name}" for name in missing)
+        verb = "are" if len(missing) > 1 else "is"
+        print(f"error: {names} {verb} required for {args.cmd}", file=sys.stderr)
+        return 2
 
     options = S3Options(
         endpoint=args.endpoint,
@@ -361,6 +393,10 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
         Process exit code.
     """
 
+    exclude = (
+        DEFAULT_EXCLUDE if args.exclude is None else tuple(e for e in args.exclude if e)
+    )
+
     if args.cmd == "partition":
         policy = Policy(t_max_bytes=args.t_max) if args.t_max else None
         result = partition_store(
@@ -370,8 +406,9 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
             policy=policy,
             force=args.force,
             dry_run=args.dry_run,
+            exclude=exclude,
         )
-        print(explain(read_arrays(data, args.scope), result.manifest))
+        print(explain(read_arrays(data, args.scope, exclude=exclude), result.manifest))
         print()
         print(result.diff.describe())
         print(
@@ -380,13 +417,15 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
         )
 
     elif args.cmd == "scan":
-        for candidate in scan(data, args.root, store):
+        for candidate in scan(data, args.root, store, exclude=exclude):
             print(
                 f"{'ok ' if candidate.has_manifest else 'NEW'} "
                 f"{candidate.fmt}  {candidate.scope}"
             )
             if args.partition and not candidate.has_manifest:
-                partition_store(data, store, candidate.scope, dry_run=args.dry_run)
+                partition_store(
+                    data, store, candidate.scope, dry_run=args.dry_run, exclude=exclude
+                )
 
     elif args.cmd == "resolve":
         trie = Trie()
@@ -394,6 +433,9 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
         for key in args.keys:
             res = trie.lookup(key)
             print(f"{key}  ->  {res.blob_id or res.kind}")
+
+    elif args.cmd == "schema":
+        print(json.dumps(SCHEMA, indent=2))
 
     elif args.cmd == "show":
         for manifest in sorted(store.load_all(), key=lambda m: m.scope):

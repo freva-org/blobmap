@@ -234,3 +234,41 @@ def test_more_objects_than_the_grid_allows_warns(store, caplog):
         time = read_arrays(store, "s")[0]
     assert time.nobjects == 1 and time.nobjects_seen == 2
     assert "stale chunks" in caplog.text
+
+
+# -- gateway artefacts -----------------------------------------------------
+
+def test_gateway_staging_is_excluded(store, caplog):
+    """Versity's posix backend stages multipart uploads under .sgwtmp. That is
+    invisible over S3 but shows up when scanning the backing filesystem, and
+    staging objects inside a store prefix would be counted into an array's
+    size and skew the chosen bucket width."""
+    write_store(store, "s", basic(), zarr_format=3)
+    obs.put(store, "s/.sgwtmp/multipart/staging-abc", b"\0" * 10_000)
+    obs.put(store, "s/tas/.sgwtmp/leftover", b"\0" * 10_000)
+
+    with caplog.at_level("WARNING"):
+        arrays = {a.path: a for a in read_arrays(store, "s")}
+
+    assert arrays["tas"].stored_bytes == 4 * 64      # staging not counted
+    assert "belong to no array" not in caplog.text
+
+
+def test_exclusion_can_be_turned_off(store):
+    write_store(store, "s", basic(), zarr_format=3)
+    obs.put(store, "s/tas/.sgwtmp/leftover", b"\0" * 10_000)
+    arrays = {a.path: a for a in read_arrays(store, "s", exclude=())}
+    assert arrays["tas"].stored_bytes == 4 * 64 + 10_000
+
+
+@pytest.mark.parametrize("key,expected", [
+    (".sgwtmp/multipart/x", True),
+    ("a/.sgwtmp/x", True),
+    (".versitygw/meta", True),
+    ("a/.snapshot/b", True),
+    ("healpix/mean.zarr/tas/0/0", False),
+    ("healpix/data.sgwtmp.nc", False),      # named like it, but not a segment
+])
+def test_excluded_matches_whole_segments(key, expected):
+    from blobmap import excluded
+    assert excluded(key) is expected

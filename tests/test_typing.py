@@ -52,16 +52,45 @@ def test_real_backends_satisfy_the_alias():
     assert isinstance(MemoryStore(), Store.__args__)
 
 
+def run_mypy(probe: Path, cache: Path) -> subprocess.CompletedProcess[str]:
+    """Type-check one file.
+
+    The cache goes somewhere disposable rather than into the repository: mypy
+    mmaps its cache, so a cache directory that is cleaned while it is running
+    kills the process with SIGBUS and no output at all.
+
+    Args:
+        probe: File to check.
+        cache: Scratch cache directory.
+
+    Returns:
+        The completed process.
+    """
+    return subprocess.run(
+        [sys.executable, "-m", "mypy", "--cache-dir", str(cache), str(probe)],
+        capture_output=True, text=True, cwd=ROOT)
+
+
+def check(probe: Path, cache: Path) -> str:
+    """Type-check, skipping if mypy could not run at all.
+
+    A crash with no output means the environment, not the annotation. Failing
+    the suite for that would train people to ignore these tests.
+    """
+    result = run_mypy(probe, cache)
+    if result.returncode < 0 or (result.returncode and not result.stdout):
+        pytest.skip(f"mypy could not run here: rc={result.returncode} "
+                    f"{result.stderr[:200]}")
+    return result.stdout
+
+
 def test_mypy_rejects_a_non_store(tmp_path):
     """The check that proves the annotation has teeth."""
     probe = tmp_path / "probe.py"
     probe.write_text(
         "from blobmap import read_arrays\n"
         "read_arrays('not a store', 'scope')\n")
-    result = subprocess.run(
-        [sys.executable, "-m", "mypy", "--no-incremental", str(probe)],
-        capture_output=True, text=True, cwd=ROOT)
-    assert "arg-type" in result.stdout, result.stdout
+    assert "arg-type" in check(probe, tmp_path / "cache")
 
 
 def test_mypy_accepts_a_real_store(tmp_path):
@@ -70,7 +99,4 @@ def test_mypy_accepts_a_real_store(tmp_path):
         "from obstore.store import MemoryStore\n"
         "from blobmap import read_arrays\n"
         "read_arrays(MemoryStore(), 'scope')\n")
-    result = subprocess.run(
-        [sys.executable, "-m", "mypy", "--no-incremental", str(probe)],
-        capture_output=True, text=True, cwd=ROOT)
-    assert result.returncode == 0, result.stdout
+    assert "no issues" in check(probe, tmp_path / "cache")

@@ -33,7 +33,7 @@ import json
 import logging
 import posixpath
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 from .model import METADATA_BASENAMES, Array
 from .storage import Entry, Store, get_bytes, list_all, list_names
@@ -45,6 +45,15 @@ V2_GROUP = ".zgroup"
 V2_ARRAY = ".zarray"
 V2_ATTRS = ".zattrs"
 
+#: Path segments to skip by default.
+#:
+#: These matter when scanning an S3 gateway's backing filesystem rather than
+#: going through the S3 API. Versity's posix backend stages multipart uploads
+#: under `.sgwtmp`, which is invisible over S3 but shows up in a directory
+#: walk. Left in, staging objects inside a store prefix would be counted into
+#: an array's size and skew the chosen bucket width.
+DEFAULT_EXCLUDE: tuple[str, ...] = (".sgwtmp", ".versitygw", ".snapshot")
+
 _ITEMSIZE: dict[str, int] = {
     "bool": 1, "int8": 1, "uint8": 1, "int16": 2, "uint16": 2, "float16": 2,
     "int32": 4, "uint32": 4, "float32": 4, "int64": 8, "uint64": 8,
@@ -54,6 +63,30 @@ _ITEMSIZE: dict[str, int] = {
 
 class NotAZarrStore(ValueError):
     """No zarr metadata was found under the given prefix."""
+
+
+def excluded(key: str, exclude: Sequence[str] = DEFAULT_EXCLUDE) -> bool:
+    """Whether a key sits under an excluded path segment.
+
+    Matches whole segments, so `.sgwtmp` skips `.sgwtmp/multipart/x` but a
+    file merely *named* `data.sgwtmp.nc` is kept.
+
+    Args:
+        key: Object key.
+        exclude: Path segments to skip.
+
+    Returns:
+        True if any segment of the key is excluded.
+
+    Example:
+        >>> excluded(".sgwtmp/multipart/staging-abc")
+        True
+        >>> excluded("healpix/mean.zarr/tas/0/0")
+        False
+        >>> excluded("healpix/data.sgwtmp.nc")
+        False
+    """
+    return any(part in exclude for part in key.split("/"))
 
 
 def detect_format(store: Store, scope: str) -> str | None:
@@ -121,12 +154,17 @@ class _Node:
     sample_keys: list[str] = field(default_factory=list)
 
 
-def read_arrays(store: Store, scope: str) -> list[Array]:
+def read_arrays(store: Store, scope: str, *,
+                exclude: Sequence[str] = DEFAULT_EXCLUDE) -> list[Array]:
     """Describe every array under a scope, sized from a single LIST.
 
     Args:
         store: A storage handle for the data.
         scope: Prefix to read, usually a store root.
+        exclude: Path segments to skip, defaulting to
+            `DEFAULT_EXCLUDE`. Relevant
+            when scanning a gateway's backing filesystem, which exposes
+            staging directories the S3 API hides.
 
     Returns:
         One [`Array`][blobmap.model.Array] per array found, sorted by path.
@@ -146,6 +184,8 @@ def read_arrays(store: Store, scope: str) -> list[Array]:
     data: list[Entry] = []
 
     for entry in list_all(store, prefix):
+        if excluded(_relative(entry.key, prefix), exclude):
+            continue
         if posixpath.basename(entry.key) in METADATA_BASENAMES:
             metadata_keys.append(entry.key)
         else:

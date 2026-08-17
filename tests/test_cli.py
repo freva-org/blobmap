@@ -225,3 +225,26 @@ def test_schema_command_needs_no_stores(capsys):
 def test_missing_store_arguments(argv, expected, capsys):
     assert main(argv) == 2
     assert expected in capsys.readouterr().err
+
+
+def test_exclude_flag_is_threaded_through(tmp_path, capsys):
+    """--data pointed at a gateway's backing filesystem sees staging dirs the
+    S3 API hides."""
+    import obstore as obs
+    from tests.zarrgen import ArraySpec, write_store
+    from blobmap.backends import open_store
+
+    data_dir = tmp_path / "bucket"
+    data_dir.mkdir()
+    data = open_store(str(data_dir), create=True)
+    write_store(data, "real.zarr", [ArraySpec("tas", (40, 4, 4), (10, 4, 4))])
+    write_store(data, ".sgwtmp/multipart/half.zarr",
+                [ArraySpec("tas", (40, 4, 4), (10, 4, 4))])
+
+    main(["--data", str(data_dir), "--manifests", str(tmp_path / "m"), "scan"])
+    out = capsys.readouterr().out
+    assert "real.zarr" in out and ".sgwtmp" not in out
+
+    main(["--data", str(data_dir), "--manifests", str(tmp_path / "m2"),
+          "--exclude", "", "scan"])
+    assert ".sgwtmp" in capsys.readouterr().out

@@ -169,10 +169,59 @@ def test_diff_describe_covers_all_three_kinds():
     assert "no change" in diff(new, new).describe()
 
 
-def test_colliding_idents_get_distinct_blob_ids():
+def test_colliding_idents_get_distinct_blob_ids(caplog):
     """Different paths can sanitise to the same identifier; blob ids are a
-    join key, so a collision would silently merge two blobs' state."""
+    join key, so a collision would silently merge two blobs' state. The
+    suffix is order-dependent, so it warns."""
     arrays = [arr("a-b", 400 * GiB), arr("a_b", 400 * GiB)]
-    m = partition("s/", arrays)
+    with caplog.at_level("WARNING"):
+        m = partition("s/", arrays)
     assert sorted(b.id for b in m.blobs) == ["b_a_b", "b_a_b_2"]
-    m.validate()
+    assert "not stable across repartitions" in caplog.text
+
+
+# -- ids must be derived from the full path -------------------------------
+
+def test_deep_paths_get_distinct_ids():
+    """The bug a datatree exposes. Deriving an id from only the first path
+    segment collapsed every blob in a tree onto one name, which _uniq then
+    disambiguated by iteration order -- so a repartition after the listing
+    order shifted could reassign an id to different data while tier state
+    still pointed at the old meaning."""
+    arrays = [
+        Array("multiscales/zoom_8/tas", SHAPE, CHUNKS, 4, stored_bytes=20 * GiB),
+        Array("multiscales/zoom_9/tas", SHAPE, CHUNKS, 4, stored_bytes=20 * GiB),
+        Array("multiscales/zoom_10/tas", SHAPE, CHUNKS, 4, stored_bytes=20 * GiB),
+    ]
+    m = partition("healpix/mean.zarr", arrays,
+                  policy=Policy(t_max_bytes=30 * GiB, t_min_bytes=1,
+                                t_hot_bytes=1))
+    ids = [b.id for b in m.blobs]
+    assert ids == ["b_multiscales_zoom_8_tas_c",
+                   "b_multiscales_zoom_9_tas_c",
+                   "b_multiscales_zoom_10_tas_c"]
+    assert not any(i.endswith(("_2", "_3")) for i in ids)
+
+
+def test_ids_do_not_depend_on_listing_order():
+    """The property that makes an id safe to hold a tape address against."""
+    arrays = [
+        Array("multiscales/zoom_8/tas", SHAPE, CHUNKS, 4, stored_bytes=20 * GiB),
+        Array("multiscales/zoom_9/tas", SHAPE, CHUNKS, 4, stored_bytes=20 * GiB),
+    ]
+    policy = Policy(t_max_bytes=30 * GiB, t_min_bytes=1, t_hot_bytes=1)
+    forward = {b.id: b.prefixes for b in partition("s", arrays, policy=policy).blobs}
+    reverse = {b.id: b.prefixes
+               for b in partition("s", arrays[::-1], policy=policy).blobs}
+    assert forward == reverse
+
+
+def test_coalesced_ids_name_every_prefix():
+    arrays = [
+        Array("zoom_9/pr", SHAPE, CHUNKS, 4, stored_bytes=2 * GiB),
+        Array("zoom_9/hurs", SHAPE, CHUNKS, 4, stored_bytes=2 * GiB),
+        Array("zoom_9/tas", SHAPE, CHUNKS, 4, stored_bytes=400 * GiB),
+    ]
+    m = partition("s", arrays, policy=Policy(t_hot_bytes=1))
+    coalesced = [b for b in m.blobs if b.bucket is None][0]
+    assert coalesced.id == "b_zoom_9_pr_c_zoom_9_hurs_c"

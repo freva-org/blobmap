@@ -145,3 +145,7 @@ trie is called synchronously from it.
   the one place where tiering reality feeds back into the manifest.
 * Kerchunk/virtualizarr references pointing into archived targets break
   silently. There is no concept of that dependency edge here.
+* Coordinate detection needs `_ARRAY_DIMENSIONS`, which only exists if xarray
+  wrote the store. For anything else the flag reads `False` and only `t_hot`
+  keeps the coordinate on disk. That is fine at the default threshold and
+  wrong the moment someone lowers it.

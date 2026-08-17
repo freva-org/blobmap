@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Iterator, Sequence
 
-from ..hierarchy import detect_format
+from ..hierarchy import DEFAULT_EXCLUDE, detect_format, excluded
 from ..manifests import ManifestStore
 from ..storage import Store, list_dirs
 
@@ -32,8 +32,14 @@ class Candidate:
     has_manifest: bool
 
 
-def scan(data: Store, root: str, manifests: ManifestStore, *,
-         max_depth: int = 6) -> Iterator[Candidate]:
+def scan(
+    data: Store,
+    root: str,
+    manifests: ManifestStore,
+    *,
+    max_depth: int = 6,
+    exclude: Sequence[str] = DEFAULT_EXCLUDE,
+) -> Iterator[Candidate]:
     """Walk a prefix and yield the zarr stores under it.
 
     Descent stops at a store boundary. A datatree may put an entire bucket in
@@ -47,6 +53,8 @@ def scan(data: Store, root: str, manifests: ManifestStore, *,
         max_depth: How far to descend before giving up on a branch. A store
             nested deeper than this is not found, so raise it rather than
             wonder why something is missing.
+        exclude: Path segments not to descend into, defaulting to
+            `DEFAULT_EXCLUDE`.
 
     Yields:
         One [`Candidate`][blobmap.discover.scan.Candidate] per store.
@@ -59,11 +67,12 @@ def scan(data: Store, root: str, manifests: ManifestStore, *,
         ```
     """
     known = {s.strip("/") for s in manifests.scopes()}
-    yield from _descend(data, root.strip("/"), known, max_depth)
+    yield from _descend(data, root.strip("/"), known, max_depth, tuple(exclude))
 
 
-def _descend(data: Store, scope: str, known: set[str],
-             depth: int) -> Iterator[Candidate]:
+def _descend(
+    data: Store, scope: str, known: set[str], depth: int, exclude: tuple[str, ...]
+) -> Iterator[Candidate]:
     """Recurse until a store is found or the depth budget runs out.
 
     Args:
@@ -71,16 +80,19 @@ def _descend(data: Store, scope: str, known: set[str],
         scope: Prefix currently being examined.
         known: Scopes that already have a manifest.
         depth: Remaining descent budget.
+        exclude: Path segments not to descend into.
 
     Yields:
         Candidates found in this subtree.
     """
+    if excluded(scope, exclude):
+        return
     fmt = detect_format(data, scope)
     if fmt is not None:
         yield Candidate(scope, fmt, scope in known)
-        return                       # do not walk into the store
+        return  # do not walk into the store
     if depth <= 0:
         log.debug("%s: max depth reached", scope)
         return
     for child in list_dirs(data, f"{scope}/" if scope else ""):
-        yield from _descend(data, child.strip("/"), known, depth - 1)
+        yield from _descend(data, child.strip("/"), known, depth - 1, exclude)

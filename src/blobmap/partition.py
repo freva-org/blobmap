@@ -281,7 +281,28 @@ def _group_blob(group: list[Array], taken: set[str]) -> Blob:
 
 
 def _group_id(prefixes: tuple[str, ...]) -> str:
-    return "b_" + "_".join(_ident(p.split("/")[0]) for p in prefixes)
+    """Derive an id for a blob covering one or more prefixes.
+
+    Uses the *full* prefix, not its first segment. Truncating was safe while a
+    scope was always a single store, where prefixes look like `tas/c`. For a
+    deeper scope covering a datatree it collapsed every blob in the tree onto
+    the same name, which `_uniq` then disambiguated by iteration order -- so a
+    repartition after the listing order shifted could reassign an id to
+    different data while tier state still pointed at the old meaning.
+
+    Args:
+        prefixes: The prefixes this blob claims, relative to the scope.
+
+    Returns:
+        A deterministic identifier, derived only from the prefixes themselves.
+
+    Example:
+        >>> _group_id(("pr/c", "hurs/c"))
+        'b_pr_c_hurs_c'
+        >>> _group_id(("multiscales/zoom_9/tas/c",))
+        'b_multiscales_zoom_9_tas_c'
+    """
+    return "b_" + "_".join(_ident(p) for p in prefixes)
 
 
 def _ident(path: str) -> str:
@@ -298,14 +319,22 @@ def _ident(path: str) -> str:
         A safe identifier, `root` if nothing survives sanitising.
     """
     out = "".join(c if c.isalnum() else "_" for c in path.strip("/"))
-    return out.lower() or "root"
+    while "__" in out:
+        out = out.replace("__", "_")
+    return out.strip("_").lower() or "root"
 
 
 def _uniq(ident: str, taken: set[str]) -> str:
     """Make an identifier unique by suffixing.
 
-    Different paths can sanitise to the same identifier, and a collision
-    would silently merge two blobs' tier state.
+    Different paths can still sanitise to the same identifier -- `a-b` and
+    `a_b` both become `a_b` -- and a collision would silently merge two blobs'
+    tier state.
+
+    Note the suffix depends on allocation order, so this is a last resort
+    rather than a naming scheme: ids should be distinct from the prefixes
+    alone. `_group_id` uses the full prefix precisely so that ordinary
+    partitioning never reaches here.
 
     Args:
         ident: Preferred identifier.
@@ -318,6 +347,12 @@ def _uniq(ident: str, taken: set[str]) -> str:
     while candidate in taken:
         n += 1
         candidate = f"{ident}_{n}"
+    if candidate != ident:
+        log.warning(
+            "blob id %r collides; using %r. This suffix depends on the order "
+            "arrays were listed, so it is not stable across repartitions -- "
+            "check for array paths that differ only in punctuation",
+            ident, candidate)
     taken.add(candidate)
     return candidate
 

@@ -52,3 +52,19 @@ def test_scan_from_a_subprefix(store, memory):
     write_store(store, "era5/b.zarr", spec())
     assert [c.scope for c in scan(store, "era5", ManifestStore(memory))] \
         == ["era5/b.zarr"]
+
+
+def test_scan_does_not_descend_into_excluded_dirs(store, memory):
+    """A gateway staging directory can contain anything, including something
+    that looks like a store."""
+    write_store(store, "real.zarr", spec())
+    write_store(store, ".sgwtmp/multipart/half.zarr", spec())
+    found = [c.scope for c in scan(store, "", ManifestStore(memory))]
+    assert found == ["real.zarr"]
+
+
+def test_exclusion_can_be_overridden(store, memory):
+    write_store(store, ".sgwtmp/multipart/half.zarr", spec())
+    found = [c.scope for c in scan(store, "", ManifestStore(memory),
+                                   exclude=())]
+    assert found == [".sgwtmp/multipart/half.zarr"]
