@@ -1,0 +1,116 @@
+[build-system]
+requires = ["flit_core>=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "blobmap"
+version = "2608.0.0"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "DKRZ", email = "data@dkrz.de"},
+]
+maintainers = [
+    {name = "DKRZ", email = "data@dkrz.de"},
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+description = "Decide which zarr objects move to tape together, and read that back"
+requires-python = ">=3.11"
+dependencies = ["obstore>=0.11", "jsonschema"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "mypy"]
+docs = ["mkdocs", "mkdocs-material", "mkdocstrings[python]"]
+
+[project.scripts]
+blobmap = "blobmap.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["blobmap*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "blobmap"]
+addopts = "--doctest-modules"
+pythonpath = ["."]
+
+[tool.mypy]
+strict = true
+warn_unused_ignores = true
+files = ["blobmap"]
+
+[[tool.mypy.overrides]]
+module = ["obstore.*"]
+ignore_missing_imports = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+min_version = 4.0
+env_list = docs, types, lint
+[testenv]
+passenv = *
+parallel_show_output = false
+
+[testenv:lint]
+description = "Check code quality."
+deps = black
+       isort
+       flake8
+       pydocstyle
+       codespell
+       bandit[toml]
+commands =
+    python3 -m isort --check --profile black -t py312 -l 79 src
+    python3 -m flake8 src --count --max-complexity=10 --ignore=F405,F403,E704,W503,C901 --max-line-length=120 --statistics --show-source
+    codespell {posargs: --quiet-level=2} src/
+    python3 -m pydocstyle src/grid_doctor
+    bandit -r src/grid_doctor --severity-level medium --confidence-level high
+[testenv:test]
+setenv =
+    VIRTUALENV_SYSTEM_SITE_PACKAGES=true
+description = "Run the unit tests."
+deps = -e .[tests]
+commands =
+    python3 -m pytest -vv --cov=blobmap --cov-report=html:coverage_report --junitxml report.xml --cov-report xml tests/
+    python3 -m coverage report --fail-under=65 --precision=2
+
+[testenv:docs]
+description = Build docs. Usage: tox -e docs
+deps =
+    -e .[docs]
+    codespell
+commands =
+    codespell {posargs: --quiet-level=2} docs
+    mkdocs build --strict -f mkdocs.yml
+
+[testenv:docs-serve]
+description = Serve docs locally.
+deps =
+    -e .[docs]
+    codespell
+commands =
+    codespell --quiet-level=2 docs
+    mkdocs serve -f mkdocs.yml --strict -a localhost:8000 --watch docs
+
+[testenv:types]
+description = Run mypy in strict mode
+deps = -e .
+    mypy>=1.11
+    types-requests
+    numpy
+    xarray
+commands =
+    mypy src/blobmap
+"""

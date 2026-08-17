@@ -1,0 +1,56 @@
+site_name: blobmap
+site_description: Decide which zarr objects move to tape together
+repo_url: https://github.com/DKRZ/blobmap
+theme:
+  name: material
+  features: [navigation.sections, content.code.copy, toc.integrate]
+  palette:
+    - scheme: default
+      toggle: {icon: material/weather-night, name: dark mode}
+    - scheme: slate
+      toggle: {icon: material/weather-sunny, name: light mode}
+
+nav:
+  - Home: index.md
+  - Design: design.md
+  - Operations: operations.md
+  - Internals: internals.md
+  - Contributing: contributing.md
+  - Reference:
+      - model: reference/model.md
+      - schema: reference/schema.md
+      - partition: reference/partition.md
+      - resolve: reference/resolve.md
+      - hierarchy: reference/hierarchy.md
+      - manifests: reference/manifests.md
+      - storage: reference/storage.md
+      - backends: reference/backends.md
+      - service: reference/service.md
+      - discover: reference/discover.md
+      - cli: reference/cli.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_signature_annotations: true
+            separate_signature: true
+            members_order: source
+            filters: ["!^_"]
+            merge_init_into_class: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight
+  - tables
