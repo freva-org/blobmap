@@ -41,8 +41,11 @@ class Cursor(Protocol):
     of its own and can be tested against sqlite.
     """
 
-    def execute(self, sql: str, params: Sequence[Any] = ...) -> Any: ...
-    def fetchall(self) -> list[tuple[Any, ...]]: ...
+    def execute(self, sql: str, params: Sequence[Any] = ...) -> Any:  # noqa: D102
+        ...
+
+    def fetchall(self) -> list[tuple[Any, ...]]:  # noqa: D102
+        ...
 
 
 @dataclass(frozen=True)
@@ -109,9 +112,13 @@ class EventPoller:
         ```
     """
 
-    def __init__(self, cursor: Cursor, state_path: str = ":memory:",
-                 config: PollConfig | None = None,
-                 root_of: Callable[[str], str | None] | None = None) -> None:
+    def __init__(
+        self,
+        cursor: Cursor,
+        state_path: str = ":memory:",
+        config: PollConfig | None = None,
+        root_of: Callable[[str], str | None] | None = None,
+    ) -> None:
         self.cursor = cursor
         self.config = config or PollConfig()
         # maps the node a metadata object sits in to its store root. Without
@@ -205,8 +212,8 @@ class EventPoller:
         now = time.time() if now is None else now
         cutoff = now - self.config.quiet_seconds
         rows = self.state.execute(
-            "SELECT scope FROM pending WHERE last_seen <= ? ORDER BY scope",
-            (cutoff,)).fetchall()
+            "SELECT scope FROM pending WHERE last_seen <= ? ORDER BY scope", (cutoff,)
+        ).fetchall()
         return [str(r[0]) for r in rows]
 
     def pending(self) -> dict[str, float]:
@@ -215,8 +222,10 @@ class EventPoller:
         Returns:
             Mapping of scope to the time it was last seen being written.
         """
-        return {str(s): float(t) for s, t in
-                self.state.execute("SELECT scope, last_seen FROM pending")}
+        return {
+            str(s): float(t)
+            for s, t in self.state.execute("SELECT scope, last_seen FROM pending")
+        }
 
     def touch(self, scope: str, now: float | None = None) -> None:
         """Mark a scope as recently written, resetting its debounce.
@@ -228,7 +237,8 @@ class EventPoller:
         self.state.execute(
             "INSERT INTO pending(scope, last_seen) VALUES (?, ?) "
             "ON CONFLICT(scope) DO UPDATE SET last_seen = excluded.last_seen",
-            (scope, time.time() if now is None else now))
+            (scope, time.time() if now is None else now),
+        )
 
     def clear(self, scope: str) -> None:
         """Drop a scope from the pending set, once handled.
@@ -238,8 +248,9 @@ class EventPoller:
         """
         self.state.execute("DELETE FROM pending WHERE scope = ?", (scope,))
 
-    def step(self, handler: Callable[[str], Any],
-             now: float | None = None) -> list[str]:
+    def step(
+        self, handler: Callable[[str], Any], now: float | None = None
+    ) -> list[str]:
         """One poll and dispatch cycle.
 
         Args:
@@ -285,8 +296,8 @@ class EventPoller:
             The cursor position, 0 before the first poll.
         """
         row = self.state.execute(
-            "SELECT position FROM cursor WHERE consumer = ?",
-            (self.config.consumer,)).fetchone()
+            "SELECT position FROM cursor WHERE consumer = ?", (self.config.consumer,)
+        ).fetchone()
         return int(row[0]) if row else 0
 
     def _set_position(self, position: int) -> None:
@@ -298,11 +309,12 @@ class EventPoller:
         self.state.execute(
             "INSERT INTO cursor(consumer, position) VALUES (?, ?) "
             "ON CONFLICT(consumer) DO UPDATE SET position = excluded.position",
-            (self.config.consumer, position))
+            (self.config.consumer, position),
+        )
 
 
 def store_of(key: str) -> str | None:
-    """The prefix to re-examine after a write, or `None` to ignore it.
+    """Get the prefix to re-examine after a write, or `None` to ignore it.
 
     Deliberately returns the metadata object's parent rather than the store
     root: resolving the root needs a LIST, which belongs in `root_of`. What

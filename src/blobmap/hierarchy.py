@@ -33,7 +33,7 @@ import json
 import logging
 import posixpath
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 from .model import METADATA_BASENAMES, Array
 from .storage import Store, get_bytes, list_all, list_names
@@ -61,9 +61,20 @@ DEFAULT_EXCLUDE: tuple[str, ...] = (".sgwtmp", ".versitygw", ".snapshot")
 PROGRESS_EVERY = 100_000
 
 _ITEMSIZE: dict[str, int] = {
-    "bool": 1, "int8": 1, "uint8": 1, "int16": 2, "uint16": 2, "float16": 2,
-    "int32": 4, "uint32": 4, "float32": 4, "int64": 8, "uint64": 8,
-    "float64": 8, "complex64": 8, "complex128": 16,
+    "bool": 1,
+    "int8": 1,
+    "uint8": 1,
+    "int16": 2,
+    "uint16": 2,
+    "float16": 2,
+    "int32": 4,
+    "uint32": 4,
+    "float32": 4,
+    "int64": 8,
+    "uint64": 8,
+    "float64": 8,
+    "complex64": 8,
+    "complex128": 16,
 }
 
 
@@ -115,8 +126,7 @@ def detect_format(store: Store, scope: str) -> str | None:
     return None
 
 
-def find_store_root(store: Store, prefix: str,
-                    ceiling: str = "") -> str | None:
+def find_store_root(store: Store, prefix: str, ceiling: str = "") -> str | None:
     """Climb to the outermost prefix that still holds zarr metadata.
 
     A metadata write tells you a *node* changed, not which store it belongs
@@ -160,8 +170,9 @@ class _Node:
     sample_keys: list[str] = field(default_factory=list)
 
 
-def read_arrays(store: Store, scope: str, *,
-                exclude: Sequence[str] = DEFAULT_EXCLUDE) -> list[Array]:
+def read_arrays(
+    store: Store, scope: str, *, exclude: Sequence[str] = DEFAULT_EXCLUDE
+) -> list[Array]:
     """Describe every array under a scope, sized from a single LIST.
 
     Args:
@@ -205,8 +216,12 @@ def read_arrays(store: Store, scope: str, *,
     for entry in list_all(store, prefix):
         seen += 1
         if seen % PROGRESS_EVERY == 0:
-            log.info("%s: %d objects listed, %d metadata", scope or ".",
-                     seen, len(metadata_keys))
+            log.info(
+                "%s: %d objects listed, %d metadata",
+                scope or ".",
+                seen,
+                len(metadata_keys),
+            )
         if excluded(_relative(entry.key, prefix), exclude):
             continue
         if posixpath.basename(entry.key) in METADATA_BASENAMES:
@@ -214,8 +229,9 @@ def read_arrays(store: Store, scope: str, *,
 
     if not metadata_keys:
         raise NotAZarrStore(f"{scope}: no zarr metadata found")
-    log.debug("%s: %d objects, %d metadata objects", scope or ".", seen,
-              len(metadata_keys))
+    log.debug(
+        "%s: %d objects, %d metadata objects", scope or ".", seen, len(metadata_keys)
+    )
 
     # v2 keeps attributes in a separate .zattrs object, so _ARRAY_DIMENSIONS
     # is invisible unless we read it. Without this every v2 coordinate looks
@@ -267,8 +283,12 @@ def read_arrays(store: Store, scope: str, *,
         if len(node.sample_keys) < 4:
             node.sample_keys.append(relative)
     if unassigned:
-        log.warning("%s: %d objects belong to no array; they will resolve as "
-                    "unmanaged and stay hot", scope, unassigned)
+        log.warning(
+            "%s: %d objects belong to no array; they will resolve as "
+            "unmanaged and stay hot",
+            scope,
+            unassigned,
+        )
 
     out: list[Array] = []
     for root in sorted(arrays):
@@ -283,8 +303,12 @@ def read_arrays(store: Store, scope: str, *,
                 "%s: %d objects stored but the declared grid holds %d "
                 "(shape=%s, object shape=%s) -- stale chunks from an append "
                 "or rechunk will skew sizing",
-                array.path or ".", array.nobjects_seen, array.nobjects,
-                array.shape, array.object_shape)
+                array.path or ".",
+                array.nobjects_seen,
+                array.nobjects,
+                array.shape,
+                array.object_shape,
+            )
         out.append(array)
     return out
 
@@ -328,8 +352,8 @@ def _to_array(root: str, meta: dict[str, Any], node: _Node) -> Array | None:
         if meta.get("zarr_format") == 3 or "chunk_grid" in meta:
             shape = tuple(int(x) for x in meta["shape"])
             objects = tuple(
-                int(x) for x in
-                meta["chunk_grid"]["configuration"]["chunk_shape"])
+                int(x) for x in meta["chunk_grid"]["configuration"]["chunk_shape"]
+            )
             inner = _inner_chunk(meta)
             itemsize = _itemsize(meta["data_type"])
             encoding = _v3_encoding(meta)
@@ -350,8 +374,13 @@ def _to_array(root: str, meta: dict[str, Any], node: _Node) -> Array | None:
     if observed and observed != encoding:
         # trust the keys: foreign stores do not always match their own
         # declared metadata, and a wrong encoding silently misroutes chunks
-        log.warning("%s: metadata says %s but keys look like %s; using %s",
-                    root or ".", encoding, observed, observed)
+        log.warning(
+            "%s: metadata says %s but keys look like %s; using %s",
+            root or ".",
+            encoding,
+            observed,
+            observed,
+        )
         encoding = observed
 
     return Array(
@@ -380,7 +409,8 @@ def _v3_encoding(meta: dict[str, Any]) -> str:
     encoding = meta.get("chunk_key_encoding", {})
     name = encoding.get("name", "default")
     separator = encoding.get("configuration", {}).get(
-        "separator", "/" if name == "default" else ".")
+        "separator", "/" if name == "default" else "."
+    )
     if name == "v2":
         return "v2_slash" if separator == "/" else "v2_flat"
     return "v3_slash"
@@ -415,7 +445,8 @@ def _observed_encoding(root: str, samples: list[str], ndim: int) -> str | None:
         True
     """
     for key in samples:
-        rest = key[len(root):].strip("/") if root else key
+        i = len(root)
+        rest = key[i:].strip("/") if root else key
         head = rest.split("/")[0]
         if head == "c":
             return "v3_slash"
@@ -447,8 +478,7 @@ def _inner_chunk(meta: dict[str, Any]) -> tuple[int, ...] | None:
     return None
 
 
-def _is_coordinate(root: str, meta: dict[str, Any],
-                   shape: tuple[int, ...]) -> bool:
+def _is_coordinate(root: str, meta: dict[str, Any], shape: tuple[int, ...]) -> bool:
     """Whether this array is a dimension coordinate.
 
     Coordinates must stay hot, or opening the store hits tape.
@@ -513,7 +543,7 @@ def _load(store: Store, key: str) -> dict[str, Any] | None:
         key: Full object key.
 
     Returns:
-        The parsed object, or `None` if it is missing, unparseable or not a
+        The parsed object, or `None` if it is missing, unparsable or not a
         JSON object. A listing that raced a delete must not crash a run.
     """
     raw = get_bytes(store, key)
@@ -574,4 +604,5 @@ def _relative(key: str, prefix: str) -> str:
     Returns:
         The key relative to the prefix, unchanged if it does not match.
     """
-    return key[len(prefix):] if prefix and key.startswith(prefix) else key
+    i = len(prefix)
+    return key[i:] if prefix and key.startswith(prefix) else key

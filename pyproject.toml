@@ -37,6 +37,9 @@ docs = ["mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 [project.scripts]
 blobmap = "blobmap.cli:main"
 
+[tool.pydocstyle]
+add-ignore = "D407, D105, D107"
+
 [tool.setuptools.packages.find]
 include = ["blobmap*"]
 
@@ -72,11 +75,11 @@ deps = black
        codespell
        bandit[toml]
 commands =
-    python3 -m isort --check --profile black -t py312 -l 79 src
+    python3 -m isort --check --profile black -t py313 -l 79 src
     python3 -m flake8 src --count --max-complexity=10 --ignore=F405,F403,E704,W503,C901 --max-line-length=120 --statistics --show-source
     codespell {posargs: --quiet-level=2} src/
-    python3 -m pydocstyle src/grid_doctor
-    bandit -r src/grid_doctor --severity-level medium --confidence-level high
+    python3 -m pydocstyle src/blobmap
+    bandit -r src/blobmap --severity-level medium --confidence-level high
 [testenv:test]
 setenv =
     VIRTUALENV_SYSTEM_SITE_PACKAGES=true

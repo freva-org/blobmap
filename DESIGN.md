@@ -132,6 +132,51 @@ every manifest and can upsert definitions as derived data.
 already failed or stalled. Restore has to live in the request path, and the
 trie is called synchronously from it.
 
+## No minimum blob size
+
+An earlier design coalesced small arrays until they cleared a floor, on the
+theory that a restore below roughly 10 GB is mostly tape mount overhead.
+
+That was wrong for two reasons. Coalescing groups by path adjacency, which is
+a guess about access correlation: `hurs` sitting next to `pr` in a listing
+says nothing about whether anyone reads them together, and guessing wrong
+means restoring data nobody asked for. And aggregating small objects onto tape
+is the HSM's job -- DKRZ already has a recall proxy that bundles requests by
+tape, inherited from StrongLink, so the layer below solves this properly.
+
+Blobs and that proxy compose well: objects archived as one blob were written
+contiguously, so a blob-level recall is already close to an ideal bundle, and
+the proxy is left ordering coarse units rather than thousands of individual
+chunk recalls.
+
+`t_min_bytes` therefore defaults to 0. Raise it only for a deployment whose
+HSM cannot bundle recalls.
+
+## t_hot is a "not worth a row" threshold
+
+It exists so that opening a store never touches tape, which needs metadata
+objects and dimension coordinates held back. Coordinates are identified by
+detection, not by size.
+
+Using it as a general "small arrays stay hot" rule leaves an unbounded amount
+of data permanently on disk: a store of twenty 800 MB variables was entirely
+un-archivable under a 1 GiB threshold. Multiply by a few thousand stores and
+that is the whole problem tiering was meant to solve. It defaults to 16 MiB.
+
+## Pins
+
+`hot_always` is derived: it follows from the store's structure and is
+recomputed on every partition. A pin follows from someone's intent, so it is
+carried across repartitions and can only be removed deliberately.
+
+Two consequences. A manifest is no longer fully recomputable -- blob
+definitions can be reconstructed by re-scanning, intent cannot -- which makes
+backing up the manifest bucket worth doing. And pinning a prefix that already
+has a blob cannot remove that blob, since that would orphan its tape copy, so
+`Manifest.pinned_blob_ids` exists for consumers to exclude before archiving.
+Resolution alone is not sufficient there, because a tiering policy queries
+blob state rather than keys.
+
 ## Known gaps
 
 * The trailing bucket of a growing array must never be archived -- appending

@@ -13,9 +13,9 @@ grows a keyword this does not handle, that test fails rather than the keyword
 being silently ignored.
 
 Example:
-    >>> validate_document({"schema_version": 2, "scope": "s", "epoch": 1,
+    >>> validate_document({"schema_version": 3, "scope": "s", "epoch": 1,
     ...                    "hot_always": [], "blobs": []})
-    >>> validate_document({"schema_version": 2, "scope": "s", "epoch": 0,
+    >>> validate_document({"schema_version": 3, "scope": "s", "epoch": 0,
     ...                    "hot_always": [], "blobs": []})
     Traceback (most recent call last):
         ...
@@ -30,30 +30,31 @@ from typing import Any
 #: JSON Schema draft 2020-12 for a manifest document.
 SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://dkrz.de/blobmap/manifest-v2.schema.json",
+    "$id": "https://waterpark.dkrz.de/blobmap/manifest-v3.schema.json",
     "title": "blobmap manifest",
     "description": (
         "Blob definitions for one scope. Pure definition: this changes only "
         "when the set of blobs changes, never on reads, writes, tiering or "
-        "restores."),
+        "restores."
+    ),
     "type": "object",
     "required": ["schema_version", "scope", "epoch", "hot_always", "blobs"],
     "additionalProperties": False,
     "properties": {
         "schema_version": {
             "description": "Format version. Consumers must reject a version "
-                           "they do not know rather than guess.",
+            "they do not know rather than guess.",
             "type": "integer",
-            "const": 2,
+            "const": 3,
         },
         "scope": {
             "description": "Prefix these definitions apply to, relative to "
-                           "the data store.",
+            "the data store.",
             "type": "string",
         },
         "epoch": {
             "description": "Bumped whenever the definitions change, so a "
-                           "resolver can detect staleness without diffing.",
+            "resolver can detect staleness without diffing.",
             "type": "integer",
             "minimum": 1,
         },
@@ -67,20 +68,61 @@ SCHEMA: dict[str, Any] = {
         },
         "policy": {
             "description": "Thresholds used to produce this cut, recorded so "
-                           "a later run can tell whether they changed.",
+            "a later run can tell whether they changed.",
             "type": "object",
             "additionalProperties": {"type": "integer"},
         },
         "hot_always": {
             "description": "Glob patterns that are never archivable, "
-                           "whatever the blobs say. Metadata objects and "
-                           "dimension coordinates.",
+            "whatever the blobs say. Metadata objects and "
+            "dimension coordinates.",
             "type": "array",
             "items": {"type": "string"},
         },
+        "pinned": {
+            "description": (
+                "Prefixes deliberately kept hot. Unlike hot_always, which is "
+                "derived from the store's structure and recomputed on every "
+                "partition, these are preserved across repartitions and can "
+                "only be removed deliberately."
+            ),
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["prefix", "reason"],
+                "additionalProperties": False,
+                "properties": {
+                    "prefix": {
+                        "description": "What to keep hot, relative to the "
+                        "scope. Empty pins the whole scope.",
+                        "type": "string",
+                    },
+                    "reason": {
+                        "description": "Why. Required: a pin nobody can "
+                        "explain is one nobody removes.",
+                        "type": "string",
+                        "minLength": 1,
+                    },
+                    "by": {
+                        "description": "Who set it.",
+                        "type": "string",
+                    },
+                    "at": {
+                        "description": "ISO 8601 UTC when it was set.",
+                        "type": "string",
+                    },
+                    "until": {
+                        "description": "ISO 8601 UTC after which it should be "
+                        "reviewed. Null for open-ended. Expiry "
+                        "is reported, never enforced.",
+                        "type": ["string", "null"],
+                    },
+                },
+            },
+        },
         "blobs": {
             "description": "Blob definitions. A list of rules, so its length "
-                           "tracks cut decisions rather than object count.",
+            "tracks cut decisions rather than object count.",
             "type": "array",
             "items": {
                 "type": "object",
@@ -89,41 +131,39 @@ SCHEMA: dict[str, Any] = {
                 "properties": {
                     "id": {
                         "description": "Join key against tier state, and "
-                                       "through it against tape addresses.",
+                        "through it against tape addresses.",
                         "type": "string",
                         "pattern": "^[a-z0-9_]+$",
                     },
                     "prefixes": {
                         "description": "Key prefixes this blob claims, "
-                                       "relative to the scope. More than one "
-                                       "when small arrays were coalesced.",
+                        "relative to the scope. More than one "
+                        "when small arrays were coalesced.",
                         "type": "array",
                         "minItems": 1,
                         "items": {"type": "string"},
                     },
                     "bucket": {
                         "description": "Arithmetic for cutting inside an "
-                                       "array. Null means one bucket, so the "
-                                       "resolved id is always id_0.",
+                        "array. Null means one bucket, so the "
+                        "resolved id is always id_0.",
                         "type": ["object", "null"],
                         "required": ["index", "width", "key_encoding"],
                         "additionalProperties": False,
                         "properties": {
                             "index": {
                                 "description": "Which segment after the "
-                                               "prefix holds the chunk index.",
+                                "prefix holds the chunk index.",
                                 "type": "integer",
                                 "minimum": 0,
                             },
                             "width": {
-                                "description": "Objects per blob along that "
-                                               "dimension.",
+                                "description": "Objects per blob along that dimension.",
                                 "type": "integer",
                                 "minimum": 1,
                             },
                             "key_encoding": {
-                                "description": "How to parse the index out "
-                                               "of a key.",
+                                "description": "How to parse the index out of a key.",
                                 "enum": ["v3_slash", "v2_slash", "v2_flat"],
                             },
                         },
@@ -133,8 +173,8 @@ SCHEMA: dict[str, Any] = {
         },
         "provenance": {
             "description": "Measured numbers, for debugging only. These go "
-                           "stale while the manifest is untouched, so a "
-                           "resolver must never read them.",
+            "stale while the manifest is untouched, so a "
+            "resolver must never read them.",
             "type": "object",
         },
     },
@@ -156,7 +196,7 @@ def validate_document(document: Any) -> None:
         SchemaError: On the first violation, naming the path to it.
 
     Example:
-        >>> validate_document({"schema_version": 2, "scope": "s", "epoch": 1,
+        >>> validate_document({"schema_version": 3, "scope": "s", "epoch": 1,
         ...                    "hot_always": [],
         ...                    "blobs": [{"id": "b!", "prefixes": ["x"],
         ...                               "bucket": None}]})
@@ -197,34 +237,40 @@ def _check(value: Any, schema: dict[str, Any], path: str) -> None:
         allowed = tuple(t for name in names for t in _TYPES[name])
         # bool is a subclass of int, but a boolean is never an integer here
         if isinstance(value, bool) and bool not in allowed:
-            raise SchemaError(f"{where}: expected {' or '.join(names)}, "
-                              f"got boolean")
+            raise SchemaError(f"{where}: expected {' or '.join(names)}, got boolean")
         if not isinstance(value, allowed):
-            raise SchemaError(f"{where}: expected {' or '.join(names)}, got "
-                              f"{type(value).__name__}")
+            raise SchemaError(
+                f"{where}: expected {' or '.join(names)}, got {type(value).__name__}"
+            )
 
     if "const" in schema and value != schema["const"]:
-        raise SchemaError(f"{where}: expected {schema['const']!r}, "
-                          f"got {value!r}")
+        raise SchemaError(f"{where}: expected {schema['const']!r}, got {value!r}")
 
     if "enum" in schema and value not in schema["enum"]:
-        raise SchemaError(f"{where}: {value!r} is not one of "
-                          f"{schema['enum']}")
+        raise SchemaError(f"{where}: {value!r} is not one of {schema['enum']}")
 
-    if "minimum" in schema and isinstance(value, int) \
-            and value < schema["minimum"]:
-        raise SchemaError(f"{where}: {value} is less than the minimum "
-                          f"{schema['minimum']}")
+    if "minimum" in schema and isinstance(value, int) and value < schema["minimum"]:
+        raise SchemaError(
+            f"{where}: {value} is less than the minimum {schema['minimum']}"
+        )
 
-    if "pattern" in schema and isinstance(value, str) \
-            and not re.match(schema["pattern"], value):
-        raise SchemaError(f"{where}: {value!r} does not match "
-                          f"{schema['pattern']}")
+    if (
+        "minLength" in schema
+        and isinstance(value, str)
+        and len(value) < schema["minLength"]
+    ):
+        raise SchemaError(f"{where}: must not be empty")
+
+    if (
+        "pattern" in schema
+        and isinstance(value, str)
+        and not re.match(schema["pattern"], value)
+    ):
+        raise SchemaError(f"{where}: {value!r} does not match {schema['pattern']}")
 
     if isinstance(value, list):
         if "minItems" in schema and len(value) < schema["minItems"]:
-            raise SchemaError(f"{where}: needs at least "
-                              f"{schema['minItems']} item(s)")
+            raise SchemaError(f"{where}: needs at least {schema['minItems']} item(s)")
         item_schema = schema.get("items")
         if item_schema:
             for i, item in enumerate(value):

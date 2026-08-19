@@ -28,15 +28,16 @@ from .model import (
     Blob,
     Bucket,
     Manifest,
+    Pin,
     Policy,
 )
+from .pins import NotPartitioned, PinRecord
 from .partition import Diff, bucket_width, diff, partition
 from .resolve import Resolution, Trie, resolve
 from .schema import SCHEMA, SchemaError, validate_document
 from .service import NotAdditive, Result, partition_store
 from .storage import Conflict, Entry, Store
-
-__version__ = "2608.0.0"
+from ._version import __version__
 
 __all__ = [
     "GiB",
@@ -47,7 +48,10 @@ __all__ = [
     "Blob",
     "Bucket",
     "Manifest",
+    "Pin",
     "Policy",
+    "NotPartitioned",
+    "PinRecord",
     "Diff",
     "bucket_width",
     "diff",

@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from .model import (GiB, Array, Blob, Bucket, Manifest, Policy,
+from .model import (GiB, Array, Blob, Bucket, Manifest, Pin, Policy,
                     default_hot_always, now)
 
 log = logging.getLogger(__name__)
@@ -117,9 +117,11 @@ def partition(
     recompute from scratch, which is the only way to move a blob and the only
     way to orphan a tape copy.
 
-    `hot_always` is always recomputed. Hot data is never archived, so there
-    is no state to invalidate, and an array that grew past `t_hot_bytes`
-    should stop being pinned.
+    `hot_always` is always recomputed, since it follows from the store's
+    structure: hot data is never archived, so there is no state to invalidate,
+    and an array that grew past `t_hot_bytes` should stop being held back.
+    `pinned` is carried over untouched, because it follows from intent rather
+    than structure and can only be changed deliberately.
 
     Args:
         scope: Prefix these definitions apply to, relative to the data store.
@@ -150,23 +152,32 @@ def partition(
     """
     policy = policy or (previous.policy if previous else Policy())
 
+    # Pins are intent, so they survive a repartition. hot_always is derived
+    # from structure, so it is recomputed.
+    pinned: tuple[Pin, ...] = previous.pinned if previous else ()
+
     hot: list[str] = default_hot_always()
     payload: list[Array] = []
     for a in arrays:
         if a.is_coordinate or a.total_bytes < policy.t_hot_bytes:
             hot.append(f"{a.path}/**" if a.path else "**")
+        elif any(pin.covers(a.path) for pin in pinned):
+            # deliberately held hot; giving it a blob would let the tiering
+            # policy archive it the moment the pin is forgotten
+            hot.append(f"{a.path}/**" if a.path else "**")
         else:
             payload.append(a)
 
-    pinned: tuple[Blob, ...] = previous.blobs if previous else ()
-    unclaimed = [a for a in payload if not _claimed(a, pinned)]
-    taken = {b.id for b in pinned}
-    blobs = list(pinned) + _cut(unclaimed, policy, taken, fresh=not pinned)
+    carried: tuple[Blob, ...] = previous.blobs if previous else ()
+    unclaimed = [a for a in payload if not _claimed(a, carried)]
+    taken = {b.id for b in carried}
+    blobs = list(carried) + _cut(unclaimed, policy, taken, fresh=not carried)
 
     manifest = Manifest(
         scope=scope,
         blobs=tuple(blobs),
         hot_always=tuple(hot),
+        pinned=pinned,
         policy=policy,
         epoch=previous.epoch if previous else 1,
         generated_at=now(),

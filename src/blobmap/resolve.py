@@ -33,7 +33,7 @@ from typing import Any, Iterable
 
 from .model import METADATA_BASENAMES, Blob, Bucket, Manifest
 
-_MARK = "\0mark"          # marker key; cannot collide with a path segment
+_MARK = "\0mark"  # marker key; cannot collide with a path segment
 
 
 @dataclass(frozen=True)
@@ -41,10 +41,12 @@ class Resolution:
     """What a key resolves to.
 
     Attributes:
-        kind: One of `blob`, `hot` or `unmanaged`. `hot` means a metadata
-            object or pinned coordinate, which must never be archived.
-            `unmanaged` means nothing claims this key, which is normal and
-            safe rather than an error.
+        kind: One of `blob`, `hot`, `pinned` or `unmanaged`. `hot` means a
+            metadata object or coordinate, held back because of what it is.
+            `pinned` means someone deliberately asked for it to stay on disk;
+            it is reported separately so an operator can tell a structural
+            decision from a human one. `unmanaged` means nothing claims this
+            key, which is normal and safe rather than an error.
         blob_id: The concrete id, such as `b_tas_2`, or `None` unless `kind`
             is `blob`. This is the key against blobtier's state table.
         blob: The definition that matched, for callers that need its
@@ -74,6 +76,7 @@ class Resolution:
 
 
 HOT = Resolution("hot")
+PINNED = Resolution("pinned")
 UNMANAGED = Resolution("unmanaged")
 
 
@@ -100,6 +103,11 @@ class Trie:
 
     def __init__(self) -> None:
         self._root: dict[str, Any] = {}
+        # pins live in their own trie because they must win regardless of
+        # depth. A longest-prefix match over a single trie would let a blob at
+        # `tas/c` beat a pin on `tas`, which is exactly the case pinning
+        # exists for.
+        self._pins: dict[str, Any] = {}
         self._hot_basenames: set[str] = set(METADATA_BASENAMES)
         self._epochs: dict[str, int] = {}
 
@@ -126,6 +134,9 @@ class Trie:
             for prefix in blob.prefixes:
                 self._insert(_join(scope, prefix), blob)
 
+        for pin in manifest.pinned:
+            self._insert(_join(scope, pin.prefix), PINNED, self._pins)
+
     def add_all(self, manifests: Iterable[Manifest]) -> None:
         """Insert many manifests.
 
@@ -135,14 +146,17 @@ class Trie:
         for m in manifests:
             self.add(m)
 
-    def _insert(self, path: str, value: Any) -> None:
+    def _insert(
+        self, path: str, value: Any, root: dict[str, Any] | None = None
+    ) -> None:
         """Place a marker at the node for `path`.
 
         Args:
             path: Absolute prefix, split on `/`.
-            value: A `Blob` or the `HOT` sentinel.
+            value: A `Blob` or a `Resolution` sentinel.
+            root: Which trie to insert into, defaulting to the main one.
         """
-        node = self._root
+        node = self._root if root is None else root
         for part in _split(path):
             node = node.setdefault(part, {})
         node[_MARK] = value
@@ -197,6 +211,8 @@ class Trie:
             return UNMANAGED
         if parts[-1] in self._hot_basenames:
             return HOT
+        if self._pins and _covered(self._pins, parts):
+            return PINNED
 
         node: dict[str, Any] | None = self._root
         best: Any = None
@@ -221,8 +237,31 @@ class Trie:
         return Resolution("blob", blob.instance(n), blob, n)
 
 
-def _bucket_index(bucket: Bucket | None, parts: list[str],
-                  depth: int) -> int | None:
+def _covered(root: dict[str, Any], parts: list[str]) -> bool:
+    """Whether any prefix in `root` is an ancestor of `parts`.
+
+    Unlike the main lookup this stops at the *first* match rather than the
+    deepest, because every marker in the pin trie means the same thing.
+
+    Args:
+        root: The pin trie.
+        parts: The key, already split.
+
+    Returns:
+        True if a pin covers the key.
+    """
+    node = root
+    for part in parts:
+        if _MARK in node:
+            return True
+        child = node.get(part)
+        if child is None:
+            return False
+        node = child
+    return _MARK in node
+
+
+def _bucket_index(bucket: Bucket | None, parts: list[str], depth: int) -> int | None:
     """Parse the chunk index out of a key and divide it into a bucket.
 
     Args:
@@ -245,7 +284,7 @@ def _bucket_index(bucket: Bucket | None, parts: list[str],
             raw = parts[depth + bucket.index]
         value = int(raw)
     except (IndexError, ValueError):
-        return None            # not a chunk key under this prefix after all
+        return None  # not a chunk key under this prefix after all
     if value < 0:
         return None
     return value // bucket.width
@@ -311,5 +350,6 @@ def _count(node: dict[str, Any]) -> int:
     Returns:
         Node count.
     """
-    return sum(1 + _count(v) for k, v in node.items()
-               if k != _MARK and isinstance(v, dict))
+    return sum(
+        1 + _count(v) for k, v in node.items() if k != _MARK and isinstance(v, dict)
+    )

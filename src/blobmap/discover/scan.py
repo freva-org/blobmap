@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, Sequence
+from typing import Iterator, Sequence
 
 from ..hierarchy import DEFAULT_EXCLUDE, detect_format, excluded
 from ..manifests import ManifestStore
@@ -32,9 +32,14 @@ class Candidate:
     has_manifest: bool
 
 
-def scan(data: Store, root: str, manifests: ManifestStore, *,
-         max_depth: int = 6,
-         exclude: Sequence[str] = DEFAULT_EXCLUDE) -> Iterator[Candidate]:
+def scan(
+    data: Store,
+    root: str,
+    manifests: ManifestStore,
+    *,
+    max_depth: int = 6,
+    exclude: Sequence[str] = DEFAULT_EXCLUDE,
+) -> Iterator[Candidate]:
     """Walk a prefix and yield the zarr stores under it.
 
     Descent stops at a store boundary. A datatree may put an entire bucket in
@@ -65,8 +70,9 @@ def scan(data: Store, root: str, manifests: ManifestStore, *,
     yield from _descend(data, root.strip("/"), known, max_depth, tuple(exclude))
 
 
-def _descend(data: Store, scope: str, known: set[str], depth: int,
-             exclude: tuple[str, ...]) -> Iterator[Candidate]:
+def _descend(
+    data: Store, scope: str, known: set[str], depth: int, exclude: tuple[str, ...]
+) -> Iterator[Candidate]:
     """Recurse until a store is found or the depth budget runs out.
 
     Args:
@@ -85,7 +91,7 @@ def _descend(data: Store, scope: str, known: set[str], depth: int,
     fmt = detect_format(data, scope)
     if fmt is not None:
         yield Candidate(scope, fmt, scope in known)
-        return                       # do not walk into the store
+        return  # do not walk into the store
     if depth <= 0:
         log.debug("%s: max depth reached", scope)
         return

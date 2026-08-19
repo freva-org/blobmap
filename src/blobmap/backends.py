@@ -55,7 +55,7 @@ def is_local(url: str | Path) -> bool:
 
 
 def local_path(url: str) -> Path:
-    """The absolute filesystem path a local URL or bare path refers to.
+    """Get the absolute filesystem path a local URL or bare path refers to.
 
     Args:
         url: A `file://` URL, or a bare path which may be relative and may
@@ -73,11 +73,12 @@ def local_path(url: str) -> Path:
         >>> local_path("relative/dir").is_absolute()
         True
     """
-    raw = url[len("file://") :] if url.startswith("file://") else url
+    i = len("file://")
+    raw = url[i:] if url.startswith("file://") else url
     return Path(raw).expanduser().absolute()
 
 
-def normalise(url: str) -> str:
+def normalise(url: str | Path) -> str:
     """Turn a bare path into a URL, leaving real URLs alone.
 
     `obstore` rejects a bare path with "relative URL without a base", which
@@ -96,8 +97,8 @@ def normalise(url: str) -> str:
         >>> normalise("s3://cmip6")
         's3://cmip6'
     """
-    if SCHEME.match(url):
-        return url
+    if isinstance(url, Path) or SCHEME.match(url):
+        return str(url)
     return local_path(url).as_uri()
 
 

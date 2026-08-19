@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Iterator
 
 from .model import Manifest
 from .storage import Conflict, Store, get_bytes, head, list_all, put_bytes
@@ -66,7 +66,7 @@ class ManifestStore:
         self.prefix = prefix.strip("/")
 
     def key(self, scope: str) -> str:
-        """The object key a scope's manifest lives at.
+        """Get the object key a scope's manifest lives at.
 
         Args:
             scope: Data prefix, such as `cordex/nukleus/eur11.zarr`.
@@ -111,7 +111,8 @@ class ManifestStore:
         for entry in list_all(self.store, base):
             if not entry.key.endswith(MANIFEST_NAME):
                 continue
-            yield entry.key[len(base):-len(MANIFEST_NAME)].strip("/")
+            i, k = len(base), -len(MANIFEST_NAME)
+            yield entry.key[i:k].strip("/")
 
     def load_all(self, workers: int = 16) -> list[Manifest]:
         """Load every manifest, for building a [`Trie`][blobmap.resolve.Trie].
@@ -139,16 +140,24 @@ class ManifestStore:
             if stored is None:
                 continue
             if stored.manifest.scope.strip("/") != scope:
-                log.warning("manifest at %s declares scope %r -- ignoring",
-                            scope, stored.manifest.scope)
+                log.warning(
+                    "manifest at %s declares scope %r -- ignoring",
+                    scope,
+                    stored.manifest.scope,
+                )
                 continue
             out.append(stored.manifest)
         return out
 
     # -- write ------------------------------------------------------------
 
-    def write(self, manifest: Manifest, *, etag: str | None = None,
-              expect_absent: bool = False) -> str | None:
+    def write(
+        self,
+        manifest: Manifest,
+        *,
+        etag: str | None = None,
+        expect_absent: bool = False,
+    ) -> str | None:
         """Validate and write a manifest.
 
         Validation happens before every write, because a malformed manifest
@@ -169,9 +178,13 @@ class ManifestStore:
             Conflict: If a conditional write fails its precondition.
         """
         manifest.validate()
-        return put_bytes(self.store, self.key(manifest.scope),
-                         manifest.dumps().encode(),
-                         etag=etag, expect_absent=expect_absent)
+        return put_bytes(
+            self.store,
+            self.key(manifest.scope),
+            manifest.dumps().encode(),
+            etag=etag,
+            expect_absent=expect_absent,
+        )
 
 
 __all__ = ["ManifestStore", "Stored", "Conflict", "MANIFEST_NAME"]

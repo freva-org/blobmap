@@ -27,10 +27,11 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any
 
-from .schema import SchemaError, validate_document
+from .schema import validate_document
+from ._version import __version__
 
-SCHEMA_VERSION = 2
-VERSION = "0.4.0"
+SCHEMA_VERSION = 3
+VERSION = __version__
 
 GiB = 1024**3
 
@@ -44,12 +45,16 @@ KEY_ENCODINGS: dict[str, str] = {
 }
 
 METADATA_BASENAMES: tuple[str, ...] = (
-    "zarr.json", ".zarray", ".zgroup", ".zattrs", ".zmetadata",
+    "zarr.json",
+    ".zarray",
+    ".zgroup",
+    ".zattrs",
+    ".zmetadata",
 )
 
 
 def now() -> str:
-    """Current UTC time as an ISO 8601 string, to second resolution.
+    """Get current UTC time as an ISO 8601 string, to second resolution.
 
     Returns:
         Timestamp such as `2026-08-03T09:12:00+00:00`.
@@ -65,6 +70,7 @@ def now() -> str:
 # --------------------------------------------------------------------------
 # input side
 # --------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class Array:
@@ -106,13 +112,13 @@ class Array:
         'tas/c'
     """
 
-    path: str                              # relative to scope, e.g. "tas"
+    path: str  # relative to scope, e.g. "tas"
     shape: tuple[int, ...]
-    chunks: tuple[int, ...]                # inner chunk; not the object if sharded
+    chunks: tuple[int, ...]  # inner chunk; not the object if sharded
     itemsize: int
     shards: tuple[int, ...] | None = None
     stored_bytes: int | None = None
-    nobjects_seen: int | None = None       # objects actually present
+    nobjects_seen: int | None = None  # objects actually present
     is_coordinate: bool = False
     key_encoding: str = "v3_slash"
 
@@ -150,8 +156,7 @@ class Array:
             >>> Array("tas", (400, 4, 4), (10, 4, 4), 4).object_grid
             (40, 1, 1)
         """
-        return tuple(math.ceil(s / c)
-                     for s, c in zip(self.shape, self.object_shape))
+        return tuple(math.ceil(s / c) for s, c in zip(self.shape, self.object_shape))
 
     @property
     def nobjects(self) -> int:
@@ -251,6 +256,7 @@ class Array:
 # manifest
 # --------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Policy:
     """Thresholds that shape the cut.
@@ -263,11 +269,17 @@ class Policy:
         t_max_bytes: Target upper bound for one blob. A subtree at or under
             this becomes a single blob; above it the partitioner descends and
             eventually buckets. Too large and a restore takes hours.
-        t_min_bytes: Floor below which a restore is mostly mount and
-            positioning overhead. Arrays under this are coalesced with their
-            neighbours rather than each costing a mount.
-        t_hot_bytes: Arrays smaller than this are pinned hot and never
-            archived, regardless of the blobs.
+        t_min_bytes: Floor below which arrays are coalesced with their
+            neighbours rather than each becoming a blob. Defaults to 0, which
+            disables coalescing: it groups by path adjacency, which is a guess
+            about access correlation, and the cost of guessing wrong is
+            restoring data nobody asked for. Aggregating small objects is the
+            tape layer's job. Raise it only if the HSM cannot bundle recalls.
+        t_hot_bytes: Arrays smaller than this are never archived, regardless
+            of the blobs. This is a "not worth a row" threshold, not a
+            "small variable" one: keeping every sub-gigabyte array hot leaves
+            an unbounded amount of data permanently on disk. Coordinates are
+            pinned by detection, not by size, so this can be small.
         width_clamp: Bound on the worst case. A blob may not exceed
             `width_clamp * t_max_bytes` even if compression degrades to
             nothing, computed from uncompressed object size.
@@ -279,13 +291,13 @@ class Policy:
     Example:
         >>> Policy().t_max_bytes == 100 * GiB
         True
-        >>> Policy(t_max_bytes=50 * GiB).t_min_bytes == 10 * GiB
-        True
+        >>> Policy().t_min_bytes            # no floor: the tape layer bundles
+        0
     """
 
     t_max_bytes: int = 100 * GiB
-    t_min_bytes: int = 10 * GiB
-    t_hot_bytes: int = 1 * GiB
+    t_min_bytes: int = 0
+    t_hot_bytes: int = 16 * 1024**2
     width_clamp: int = 8
     pow2_floor: int = 64
 
@@ -315,10 +327,117 @@ class Policy:
 
         Example:
             >>> Policy.from_json({"t_max_bytes": 5, "added_in_future": 9})
-            Policy(t_max_bytes=5, t_min_bytes=10737418240, t_hot_bytes=1073741824, width_clamp=8, pow2_floor=64)
+            Policy(t_max_bytes=5, t_min_bytes=0, t_hot_bytes=16777216, width_clamp=8, pow2_floor=64)
         """
         fields = set(cls.__dataclass_fields__)
         return cls(**{k: int(v) for k, v in d.items() if k in fields})
+
+
+@dataclass(frozen=True)
+class Pin:
+    """A deliberate instruction to keep a prefix hot.
+
+    Distinct from `hot_always`, which is *derived*: metadata objects and
+    coordinates are recomputed on every partition because they follow from the
+    store's structure. A pin follows from someone's intent, so it is preserved
+    across repartitions and can only be removed by removing it.
+
+    That also means a pin is the one part of a manifest that cannot be
+    reconstructed by re-scanning. Blob definitions can be recomputed; intent
+    cannot. Back the manifest bucket up.
+
+    Attributes:
+        prefix: What to keep hot, relative to the manifest scope. Empty
+            string pins the whole scope.
+        reason: Why. Required, because a pin with no stated reason is
+            indistinguishable from one nobody remembers setting.
+        by: Who set it.
+        at: ISO 8601 UTC timestamp when it was set.
+        until: ISO 8601 UTC timestamp after which it should be reviewed, or
+            `None` for an open-ended pin. Expiry is *reported*, not enforced:
+            silently unpinning a dataset someone is working on would be a
+            worse surprise than a stale pin.
+
+    Example:
+        >>> pin = Pin("multiscales/zoom_9", "active ICON analysis", "wilfred",
+        ...           "2026-08-19T09:12:00+00:00", "2026-12-01T00:00:00+00:00")
+        >>> pin.covers("multiscales/zoom_9/tas/c/0")
+        True
+        >>> pin.covers("multiscales/zoom_8/tas/c/0")
+        False
+    """
+
+    prefix: str
+    reason: str
+    by: str = ""
+    at: str = ""
+    until: str | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        """Serialise for the manifest.
+
+        Returns:
+            A dict with `prefix`, `reason`, `by`, `at` and `until`.
+        """
+        return {
+            "prefix": self.prefix,
+            "reason": self.reason,
+            "by": self.by,
+            "at": self.at,
+            "until": self.until,
+        }
+
+    @classmethod
+    def from_json(cls, d: dict[str, Any]) -> Pin:
+        """Rebuild from a manifest entry.
+
+        Args:
+            d: One element of the manifest's `pinned` list.
+
+        Returns:
+            A `Pin`.
+        """
+        return cls(
+            str(d["prefix"]),
+            str(d["reason"]),
+            str(d.get("by", "")),
+            str(d.get("at", "")),
+            None if d.get("until") is None else str(d["until"]),
+        )
+
+    def covers(self, key: str) -> bool:
+        """Whether this pin applies to a key, relative to the scope.
+
+        Args:
+            key: Scope-relative object key.
+
+        Returns:
+            True if the key is at or below the pinned prefix.
+        """
+        if not self.prefix:
+            return True
+        return key == self.prefix or key.startswith(self.prefix + "/")
+
+    def expired(self, now_iso: str | None = None) -> bool:
+        """Whether the review date has passed.
+
+        Args:
+            now_iso: Time to compare against, defaulting to now. ISO 8601.
+
+        Returns:
+            False for an open-ended pin, which never expires but also never
+            gets reviewed -- which is its own problem, so `pin show` calls
+            those out separately.
+
+        Example:
+            >>> Pin("x", "why", until="2020-01-01T00:00:00+00:00").expired()
+            True
+            >>> Pin("x", "why").expired()
+            False
+        """
+        if self.until is None:
+            return False
+        return (now_iso or now()) > self.until
 
 
 @dataclass(frozen=True)
@@ -353,8 +472,11 @@ class Bucket:
         Returns:
             A dict with `index`, `width` and `key_encoding`.
         """
-        return {"index": self.index, "width": self.width,
-                "key_encoding": self.key_encoding}
+        return {
+            "index": self.index,
+            "width": self.width,
+            "key_encoding": self.key_encoding,
+        }
 
     @classmethod
     def from_json(cls, d: dict[str, Any]) -> Bucket:
@@ -410,8 +532,11 @@ class Blob:
             >>> sorted(Blob("b_pr", ("pr/c",)).to_json())
             ['bucket', 'id', 'prefixes']
         """
-        return {"id": self.id, "prefixes": list(self.prefixes),
-                "bucket": self.bucket.to_json() if self.bucket else None}
+        return {
+            "id": self.id,
+            "prefixes": list(self.prefixes),
+            "bucket": self.bucket.to_json() if self.bucket else None,
+        }
 
     @classmethod
     def from_json(cls, d: dict[str, Any]) -> Blob:
@@ -424,11 +549,12 @@ class Blob:
             A `Blob`.
         """
         b = d.get("bucket")
-        return cls(str(d["id"]), tuple(d["prefixes"]),
-                   Bucket.from_json(b) if b else None)
+        return cls(
+            str(d["id"]), tuple(d["prefixes"]), Bucket.from_json(b) if b else None
+        )
 
     def instance(self, n: int) -> str:
-        """The concrete blob id for bucket number `n`.
+        """Get the concrete blob id for bucket number `n`.
 
         Args:
             n: Bucket number, always 0 when `bucket` is `None`.
@@ -459,8 +585,12 @@ class Manifest:
             the number of cut decisions, not the number of blobs and
             certainly not the number of objects.
         hot_always: Glob patterns that are never archivable, whatever the
-            blobs say. Metadata objects and dimension coordinates. This is
-            what keeps `xr.open_zarr` from triggering a tape mount.
+            blobs say. Metadata objects and dimension coordinates. Derived
+            from the store's structure and recomputed on every partition, so
+            this is not where deliberate decisions belong.
+        pinned: Prefixes someone has deliberately kept hot. Preserved across
+            repartitions, unlike `hot_always`, and the one part of a manifest
+            that cannot be reconstructed by re-scanning.
         policy: Thresholds used to produce this cut, recorded so a later run
             can tell whether they changed.
         epoch: Bumped whenever the definitions change. Lets a resolver decide
@@ -483,6 +613,7 @@ class Manifest:
     scope: str
     blobs: tuple[Blob, ...]
     hot_always: tuple[str, ...]
+    pinned: tuple[Pin, ...] = ()
     policy: Policy = field(default_factory=Policy)
     epoch: int = 1
     generated_at: str = ""
@@ -514,6 +645,7 @@ class Manifest:
             "generated_by": self.generated_by,
             "policy": self.policy.to_json(),
             "hot_always": list(self.hot_always),
+            "pinned": [p.to_json() for p in self.pinned],
             "blobs": [b.to_json() for b in self.blobs],
             "provenance": self.provenance,
         }
@@ -552,13 +684,14 @@ class Manifest:
             ...                     "epoch": 1, "hot_always": [], "blobs": []})
             Traceback (most recent call last):
                 ...
-            blobmap.schema.SchemaError: schema_version: expected 2, got 99
+            blobmap.schema.SchemaError: schema_version: expected 3, got 99
         """
         validate_document(d)
         return cls(
             scope=str(d["scope"]),
             blobs=tuple(Blob.from_json(b) for b in d["blobs"]),
             hot_always=tuple(d["hot_always"]),
+            pinned=tuple(Pin.from_json(x) for x in d.get("pinned", [])),
             policy=Policy.from_json(d.get("policy", {})),
             epoch=int(d.get("epoch", 1)),
             generated_at=str(d.get("generated_at", "")),
@@ -582,6 +715,7 @@ class Manifest:
 
         Example:
             >>> m = Manifest("s", (Blob("b", ("x",)),), (),
+            ...              (Pin("x", "under active analysis"),),
             ...              generated_at="2026-01-01T00:00:00+00:00")
             >>> Manifest.loads(m.dumps()) == m
             True
@@ -607,6 +741,52 @@ class Manifest:
             frozen.
         """
         return replace(self, epoch=self.epoch + 1, generated_at=now(), **changes)
+
+    def pin_for(self, key: str) -> Pin | None:
+        """The pin covering a scope-relative key, if any.
+
+        Args:
+            key: Scope-relative object key.
+
+        Returns:
+            The first matching `Pin`, or `None`.
+        """
+        for pin in self.pinned:
+            if pin.covers(key):
+                return pin
+        return None
+
+    def pinned_blob_ids(self) -> set[str]:
+        """Blob ids whose definition is covered by a pin.
+
+        Pinning a prefix that already has a blob cannot remove that blob:
+        repartitioning is additive, and dropping a blob id would orphan
+        whatever tape copy is held against it. So the definition survives,
+        nothing resolves to it any more, and its last-read timestamp goes
+        stale -- at which point an age-based tiering policy would archive
+        exactly the data someone asked to keep on disk.
+
+        A consumer must therefore exclude these before archiving. Resolution
+        alone is not enough, because the policy query runs over blob state
+        rather than over keys.
+
+        Returns:
+            Ids of blobs covered by at least one pin. Note these are
+            definition ids, not instance ids: a bucketed blob contributes
+            `b_tas`, which covers every `b_tas_n`.
+
+        Example:
+            >>> m = Manifest("s", (Blob("b_tas", ("tas/c",)),), (),
+            ...              (Pin("tas", "under analysis"),))
+            >>> m.pinned_blob_ids()
+            {'b_tas'}
+        """
+        return {
+            b.id
+            for b in self.blobs
+            for prefix in b.prefixes
+            if any(pin.covers(prefix) for pin in self.pinned)
+        }
 
     def validate(self) -> None:
         """Check the invariants that the resolver relies on.
@@ -639,15 +819,29 @@ class Manifest:
             if b.bucket is None:
                 continue
             if b.bucket.key_encoding not in KEY_ENCODINGS:
-                raise ValueError(f"{b.id}: unknown key_encoding "
-                                 f"{b.bucket.key_encoding!r}")
+                raise ValueError(
+                    f"{b.id}: unknown key_encoding {b.bucket.key_encoding!r}"
+                )
             if len(b.prefixes) != 1:
-                raise ValueError(f"{b.id}: a bucketed blob needs exactly one "
-                                 f"prefix, got {len(b.prefixes)}")
+                raise ValueError(
+                    f"{b.id}: a bucketed blob needs exactly one "
+                    f"prefix, got {len(b.prefixes)}"
+                )
             if b.bucket.width < 1:
                 raise ValueError(f"{b.id}: width must be >= 1")
             if b.bucket.index < 0:
                 raise ValueError(f"{b.id}: index must be >= 0")
+
+        seen_prefixes: set[str] = set()
+        for pin in self.pinned:
+            if not pin.reason.strip():
+                raise ValueError(
+                    f"pin on {pin.prefix!r} has no reason; a pin "
+                    f"nobody can explain is one nobody removes"
+                )
+            if pin.prefix in seen_prefixes:
+                raise ValueError(f"duplicate pin on {pin.prefix!r}")
+            seen_prefixes.add(pin.prefix)
 
 
 def default_hot_always() -> list[str]:
