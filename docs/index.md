@@ -23,6 +23,41 @@ data, which is what makes this work for stores you must not alter.
 Manifests are pure definition. Tier, last access and restore state live in
 blobtier's table, keyed by blob id.
 
+## Pins
+
+Everything except metadata, coordinates and genuinely tiny arrays is
+archivable. To hold something on disk deliberately:
+
+    blobmap ... pin add cordex/a.zarr multiscales/zoom_9 \
+        --reason "active ICON analysis" --until 2026-12-01
+    blobmap ... pin show
+    blobmap ... pin remove cordex/a.zarr multiscales/zoom_9
+
+A pin is set once and persists across repartitions, rather than being a flag
+passed on every run: whether a dataset stays hot should not depend on shell
+history. `--reason` is required, because a pin nobody can explain is one
+nobody removes, and `pin show` lists expired and open-ended pins first since
+those are how a hot pool quietly fills.
+
+Expiry is reported, never enforced. Nothing is unpinned behind your back.
+
+## Checking what is not archivable
+
+    blobmap ... report
+    blobmap ... report --per-bucket
+
+    scope       total   archivable        hot     pinned   unmanaged    blobs
+    era5     412.0 TiB    408.1 TiB    0.3 TiB    3.6 TiB       0.0 B    4,102
+    cmip6     88.0 TiB     71.2 TiB    0.1 TiB    2.5 TiB    14.2 TiB    1,880
+
+    cmip6: 16% unmanaged. Something exists that no manifest claims -- an
+    unpartitioned store, a variable added since the last run, or a layout the
+    partitioner did not recognise. Run scan.
+
+`unmanaged` is the column to watch. Hot and pinned data is held back for
+reasons someone chose; unmanaged data is held back because nothing knows about
+it, which is how a pool fills without anyone noticing.
+
 ## Invariants
 
 * Every blob is `{id, prefixes, bucket}`. `bucket: null` means one bucket, so
@@ -35,6 +70,13 @@ blobtier's table, keyed by blob id.
   has no effect on an existing scope; cuts are frozen once made. Only
   `--force` can move a blob, and it says what it orphaned.
 * An unknown path resolves to unmanaged-and-hot. Misses are normal, not errors.
+* `hot_always` is derived from structure and recomputed on every partition.
+  `pinned` is intent, carried over untouched, and the one part of a manifest
+  that cannot be reconstructed by re-scanning -- so back the manifest bucket
+  up.
+* There is no minimum blob size. Coalescing groups by path adjacency, which
+  guesses at access correlation, and guessing wrong means restoring data
+  nobody asked for. Aggregating small objects belongs to the tape layer.
 * The storage unit is the shard where sharding is in use. zarr-python inverts
   the naming (`Array.chunks` is the *inner* chunk); getting this wrong makes
   blobs larger than the target by the shard factor.

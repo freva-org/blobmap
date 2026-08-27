@@ -40,6 +40,17 @@ GitHub and in mkdocs without any build step. `tests/test_docs.py` checks every
 diagram is well formed, since a syntax error is otherwise invisible until
 someone opens the page.
 
+**Do not set colours.** No `fill:`, no `classDef`, no `style`. Each renderer
+theming these differently is not a problem worth solving: GitHub light, GitHub
+dark and Material's palette toggle each override a different part, and
+mkdocs-material's CSS re-sets `.mermaid text` with higher specificity than a
+`classDef color:`, so a hardcoded fill ends up with the theme's own text
+colour over it. Letting the theme choose both is the only combination that is
+legible everywhere. A test enforces this.
+
+Where a box needs emphasis, use structure instead: put it in a labelled
+subgraph, or mark the label with `<b>`.
+
 The call graph is generated from the AST:
 
     python tools/callgraph.py --entry partition_store --depth 3
