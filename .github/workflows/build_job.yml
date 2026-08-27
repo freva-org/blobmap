@@ -72,8 +72,8 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           # Everything between "## <version>" and the next "## " heading.
           # Matching the whole line avoids "## 0.5" also matching "## 0.5.1".
-          awk -v v="$VERSION" '$0 == "## " v {f=1; next} /^## /{if(f) exit} f' \
-              CHANGELOG.md > /tmp/release-notes.md
+          awk -v v="v$VERSION" '$0 == "## " v {f=1; next} /^## /{if(f) exit} f' \
+              docs/changelog.md > /tmp/release-notes.md
           if [ ! -s /tmp/release-notes.md ]; then
             echo "::error::no '## $VERSION' section in CHANGELOG.md"
             exit 1

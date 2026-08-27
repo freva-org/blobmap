@@ -4,7 +4,7 @@ Manifest schema versions are tracked separately from package versions and are
 published at <https://waterpark.dkrz.de/blobmap/>. A consumer must reject a
 schema version it does not know rather than attempt to read it.
 
-## 0.5.0
+## v0.5.0
 
 First release.
 
