@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#blobmap" class="md-skip">
+        <a href="#the-manifest-is-a-rule-not-a-table" class="md-skip">
           Skip to content
         </a>
       
@@ -272,8 +272,6 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
-        
-      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
@@ -316,14 +314,84 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-manifest-is-a-rule-not-a-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The manifest is a rule, not a table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Use">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#paths-and-urls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths and URLs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connecting-to-s3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Connecting to S3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scanning-a-gateways-backing-filesystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanning a gateway's backing filesystem
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#pins" class="md-nav__link">
@@ -337,10 +405,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#checking-what-is-not-archivable" class="md-nav__link">
+  <a href="#what-is-not-archivable" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Checking what is not archivable
+        What is not archivable
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#as-a-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        As a library
       
     </span>
   </a>
@@ -359,10 +438,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#paths-and-urls" class="md-nav__link">
+  <a href="#documentation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Paths and URLs
+        Documentation
       
     </span>
   </a>
@@ -370,10 +449,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#connecting-to-s3" class="md-nav__link">
+  <a href="#development" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Connecting to S3
+        Development
       
     </span>
   </a>
@@ -381,32 +460,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#usage" class="md-nav__link">
+  <a href="#licence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Usage
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#testing" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Testing
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Notes
+        Licence
       
     </span>
   </a>
@@ -1001,47 +1058,117 @@
   
 
 
-<h1 id="blobmap">blobmap<a class="headerlink" href="#blobmap" title="Permanent link">&para;</a></h1>
-<p>Decides which zarr objects move to and from tape together, and reads that
-decision back.</p>
-<div class="highlight"><pre><span></span><code>model       manifest types              stdlib only
-partition   arrays -&gt; Manifest          pure, no I/O
-resolve     object key -&gt; blob id       the semantics of the format
-storage     three ops over obstore      S3, local disk, memory
-manifests   manifest read/write         conditional, in a bucket you own
-hierarchy   zarr store -&gt; arrays        LIST-first, never reads a chunk
-discover    scan / event drivers        what feeds the partitioner
+<div align="center">
+  <img src="assets/logo-color.svg" alt="" width="88">
+  <h1>blobmap</h1>
+  <p><em>Decide which zarr objects move to tape together, and read that back.</em></p>
+</div>
+
+<hr />
+<p>A zarr store is hundreds of thousands of objects with no structure S3 can see.
+Tiering it needs a unit that is neither a chunk nor the whole store:</p>
+<ul>
+<li><strong>per chunk</strong> is untrackable. One store is 10^5 to 10^6 objects, so the state
+  table outgrows the data catalogue and a single user read fires thousands of
+  updates.</li>
+<li><strong>per store</strong> is useless. A 50 TB store is one unit, and a datatree can put
+  an entire bucket in one store.</li>
+</ul>
+<p>A <strong>blob</strong> sits in between: a set of objects that move as a unit, sized so a
+restore is worth a tape mount.</p>
+<p>blobmap decides where the cuts go, writes them down, and reads them back. It
+does not move anything. Tier state, archiving and restore belong to whatever
+consumes the manifests.</p>
+<h2 id="the-manifest-is-a-rule-not-a-table">The manifest is a rule, not a table<a class="headerlink" href="#the-manifest-is-a-rule-not-a-table" title="Permanent link">&para;</a></h2>
+<p>A blob definition is a prefix plus arithmetic:</p>
+<div class="highlight"><pre><span></span><code>tas/c/&lt;n&gt;/...   -&gt;   b_tas_{n // 2048}
 </code></pre></div>
-<p>A <strong>blob</strong> is a set of objects that moves as a unit. Per-chunk is too fine to
-track -- 300k rows for one store -- and per-store is too coarse to tier. A
-blob sits in between, sized so that a restore is worth a tape mount.</p>
-<p>The <strong>manifest</strong> is a rule, not a table. <code>tas/c/&lt;n&gt;/...</code> -&gt; <code>b_tas_{n // 2048}</code>
-resolves chunk 5,000,000 without anyone having computed it, so appends need no
-manifest change at all. It lives in a bucket you own at a path mirroring the
-data, which is what makes this work for stores you must not alter.</p>
-<p>Manifests are pure definition. Tier, last access and restore state live in
-blobtier's table, keyed by blob id.</p>
+<p>Chunk 5,000,000 resolves without anyone having enumerated it. So <strong>appending
+to a store needs no manifest change</strong>, no epoch bump, and nothing running.
+Lookup walks an in-memory trie holding one node per <em>cut</em>, never per object: a
+store with 300,000 objects contributes a handful of nodes.</p>
+<p>Manifests live in a bucket you own, at a path mirroring the data. Never inside
+the store, because data arrives on the hub that must not be altered. The
+format is published and versioned at
+<a href="https://waterpark.dkrz.de/blobmap/">waterpark.dkrz.de/blobmap</a>.</p>
+<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>blobmap<span class="w">            </span><span class="c1"># one runtime dependency: obstore</span>
+pip<span class="w"> </span>install<span class="w"> </span>blobmap<span class="o">[</span>pretty<span class="o">]</span><span class="w">    </span><span class="c1"># coloured help output</span>
+</code></pre></div>
+<h2 id="use">Use<a class="headerlink" href="#use" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="c1"># what is here, and what has never been partitioned?</span>
+blobmap<span class="w"> </span>--data<span class="w"> </span>s3://cordex<span class="w"> </span>--manifests<span class="w"> </span>s3://waterpark-blobmap<span class="w"> </span>scan
+
+<span class="c1"># cut one store, see the decisions before writing anything</span>
+blobmap<span class="w"> </span>--data<span class="w"> </span>s3://cordex<span class="w"> </span>--manifests<span class="w"> </span>s3://waterpark-blobmap<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>partition<span class="w"> </span>nukleus/eur11.zarr<span class="w"> </span>--dry-run
+
+<span class="c1"># which blob does this object belong to?</span>
+blobmap<span class="w"> </span>--data<span class="w"> </span>s3://cordex<span class="w"> </span>--manifests<span class="w"> </span>s3://waterpark-blobmap<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>resolve<span class="w"> </span>nukleus/eur11.zarr/tas/c/5000/0/0
+</code></pre></div>
+<p><code>--dry-run</code> prints the per-array decision table. Expect to look at it while
+tuning <code>t_max</code>:</p>
+<div class="highlight"><pre><span></span><code>array          objects      stored      object  blob
+tas             10,266   459.0 GiB    45.8 MiB  b_tas_0..5  (width=2048, ~91.6 GiB/blob)
+hus              1,027   459.0 GiB   457.7 MiB  b_hus_0..8  (width=128,  ~57.2 GiB/blob)
+pr              10,266    20.0 GiB     2.0 MiB  b_pr_0
+time                 1     3.0 KiB     3.0 KiB  pinned hot
+</code></pre></div>
+<p><code>tas</code> and <code>hus</code> hold the same bytes; <code>hus</code> is sharded 10x, so it has a tenth
+of the objects and a correspondingly smaller width. The shard is the stored
+object, and getting that wrong makes blobs larger than the target by the shard
+factor.</p>
+<h3 id="paths-and-urls">Paths and URLs<a class="headerlink" href="#paths-and-urls" title="Permanent link">&para;</a></h3>
+<p><code>--data</code> and <code>--manifests</code> take a URL or a plain path, so <code>/work/blobmap</code>,
+<code>./blobmap</code>, <code>~/blobmap</code> and <code>file:///work/blobmap</code> are equivalent. A local
+manifest directory is created if missing; a missing <code>--data</code> path is an error
+rather than being created, since silently accepting a typo would make a scan
+report nothing found, which is indistinguishable from an empty bucket.</p>
+<p>Point <code>--data</code> at exactly one <strong>bucket</strong>. Scopes are bucket-relative, so a
+scope string only means something paired with a bucket name, and two buckets
+sharing a manifest root would collide.</p>
+<h3 id="connecting-to-s3">Connecting to S3<a class="headerlink" href="#connecting-to-s3" title="Permanent link">&para;</a></h3>
+<p><code>obstore</code> reads <code>AWS_ENDPOINT_URL</code>, <code>AWS_ACCESS_KEY_ID</code>,
+<code>AWS_SECRET_ACCESS_KEY</code> and <code>AWS_REGION</code> from the environment. With none of
+them set it assumes AWS and looks for instance credentials at
+<code>169.254.169.254</code>, which off EC2 hangs for the retry budget and then fails
+with an error that never mentions credentials. For anything that is not AWS:</p>
+<div class="highlight"><pre><span></span><code>blobmap<span class="w"> </span>--data<span class="w"> </span>s3://cmip6<span class="w"> </span>--endpoint<span class="w"> </span>https://s3.example.org<span class="w"> </span><span class="se">\</span>
+<span class="w">        </span>--manifests<span class="w"> </span>/work/blobmap<span class="w"> </span>scan
+</code></pre></div>
+<p><code>--anonymous</code> skips credentials and signing entirely, which is the quickest
+way to read a public bucket.</p>
+<h3 id="scanning-a-gateways-backing-filesystem">Scanning a gateway's backing filesystem<a class="headerlink" href="#scanning-a-gateways-backing-filesystem" title="Permanent link">&para;</a></h3>
+<p>With versitygw's posix backend, object keys map onto paths under the bucket
+directory, so blobmap can be pointed at Lustre instead of the S3 endpoint. The
+relative keys are identical, so the manifests come out the same:</p>
+<div class="highlight"><pre><span></span><code>blobmap<span class="w"> </span>--data<span class="w"> </span>/lustre/waterpark/eerie<span class="w"> </span>--manifests<span class="w"> </span>/work/blobmap<span class="w"> </span>scan
+</code></pre></div>
+<p>No HTTP round trip per LIST page, and <code>lfs hsm_state</code> can tell you what is
+already released. Gateway staging directories are visible this way but hidden
+over S3, so <code>.sgwtmp</code>, <code>.versitygw</code> and <code>.snapshot</code> are excluded by default.
+<code>--exclude</code> adds more, <code>--exclude ""</code> disables it.</p>
 <h2 id="pins">Pins<a class="headerlink" href="#pins" title="Permanent link">&para;</a></h2>
 <p>Everything except metadata, coordinates and genuinely tiny arrays is
 archivable. To hold something on disk deliberately:</p>
-<div class="highlight"><pre><span></span><code>blobmap ... pin add cordex/a.zarr multiscales/zoom_9 \
-    --reason "active ICON analysis" --until 2026-12-01
-blobmap ... pin show
-blobmap ... pin remove cordex/a.zarr multiscales/zoom_9
+<div class="highlight"><pre><span></span><code>blobmap<span class="w"> </span>...<span class="w"> </span>pin<span class="w"> </span>add<span class="w"> </span>cordex/a.zarr<span class="w"> </span>multiscales/zoom_9<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--reason<span class="w"> </span><span class="s2">"active ICON analysis"</span><span class="w"> </span>--until<span class="w"> </span><span class="m">2026</span>-12-01
+blobmap<span class="w"> </span>...<span class="w"> </span>pin<span class="w"> </span>show
+blobmap<span class="w"> </span>...<span class="w"> </span>pin<span class="w"> </span>remove<span class="w"> </span>cordex/a.zarr<span class="w"> </span>multiscales/zoom_9
 </code></pre></div>
 <p>A pin is set once and persists across repartitions, rather than being a flag
 passed on every run: whether a dataset stays hot should not depend on shell
 history. <code>--reason</code> is required, because a pin nobody can explain is one
-nobody removes, and <code>pin show</code> lists expired and open-ended pins first since
+nobody removes. <code>pin show</code> lists expired and open-ended pins first, since
 those are how a hot pool quietly fills.</p>
 <p>Expiry is reported, never enforced. Nothing is unpinned behind your back.</p>
-<h2 id="checking-what-is-not-archivable">Checking what is not archivable<a class="headerlink" href="#checking-what-is-not-archivable" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>blobmap ... report
-blobmap ... report --per-bucket
-
-scope       total   archivable        hot     pinned   unmanaged    blobs
-era5     412.0 TiB    408.1 TiB    0.3 TiB    3.6 TiB       0.0 B    4,102
-cmip6     88.0 TiB     71.2 TiB    0.1 TiB    2.5 TiB    14.2 TiB    1,880
+<h2 id="what-is-not-archivable">What is not archivable<a class="headerlink" href="#what-is-not-archivable" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>blobmap<span class="w"> </span>...<span class="w"> </span>report<span class="w"> </span>--per-bucket
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>scope       total   archivable        hot     pinned   unmanaged    blobs
+era5    412.0 TiB    408.1 TiB    0.3 TiB    3.6 TiB       0.0 B    4,102
+cmip6    88.0 TiB     71.2 TiB    0.1 TiB    2.5 TiB    14.2 TiB    1,880
 
 cmip6: 16% unmanaged. Something exists that no manifest claims -- an
 unpartitioned store, a variable added since the last run, or a layout the
@@ -1050,93 +1177,95 @@ partitioner did not recognise. Run scan.
 <p><code>unmanaged</code> is the column to watch. Hot and pinned data is held back for
 reasons someone chose; unmanaged data is held back because nothing knows about
 it, which is how a pool fills without anyone noticing.</p>
+<h2 id="as-a-library">As a library<a class="headerlink" href="#as-a-library" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">obstore.store</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3Store</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">blobmap</span><span class="w"> </span><span class="kn">import</span> <span class="n">ManifestStore</span><span class="p">,</span> <span class="n">Trie</span><span class="p">,</span> <span class="n">partition_store</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="n">S3Store</span><span class="p">(</span><span class="n">bucket</span><span class="o">=</span><span class="s2">"cordex"</span><span class="p">)</span>
+<span class="n">manifests</span> <span class="o">=</span> <span class="n">ManifestStore</span><span class="p">(</span><span class="n">S3Store</span><span class="p">(</span><span class="n">bucket</span><span class="o">=</span><span class="s2">"waterpark-blobmap"</span><span class="p">))</span>
+
+<span class="n">partition_store</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">manifests</span><span class="p">,</span> <span class="s2">"nukleus/eur11.zarr"</span><span class="p">)</span>
+
+<span class="n">trie</span> <span class="o">=</span> <span class="n">Trie</span><span class="p">()</span>
+<span class="n">trie</span><span class="o">.</span><span class="n">add_all</span><span class="p">(</span><span class="n">manifests</span><span class="o">.</span><span class="n">load_all</span><span class="p">())</span>
+<span class="n">trie</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="s2">"nukleus/eur11.zarr/tas/c/5000/0/0"</span><span class="p">)</span><span class="o">.</span><span class="n">blob_id</span>   <span class="c1"># 'b_tas_2'</span>
+</code></pre></div>
+<p>A consuming service builds one <code>Trie</code> per bucket at startup, which is a LIST
+plus parallel GETs over a few thousand small JSON objects with no database on
+the path, then calls <code>lookup</code> per event. Resolution lives here rather than in
+the consumer because it <em>is</em> the semantics of the format: reimplementing the
+parse rules elsewhere means they drift, and the failure mode is chunks
+attributed to the wrong tape unit.</p>
 <h2 id="invariants">Invariants<a class="headerlink" href="#invariants" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Every blob is <code>{id, prefixes, bucket}</code>. <code>bucket: null</code> means one bucket, so
-  the resolved id is always <code>f"{id}_{n}"</code> and the resolver has one code path.</li>
+  the resolved id is always <code>{id}_{n}</code> and a consumer needs one code path.</li>
 <li>Metadata objects and dimension coordinates are never archivable, so
-  <code>xr.open_zarr</code> never triggers a tape mount -- and re-reading a store to
+  <code>xr.open_zarr</code> works on a fully archived store, and re-reading a store to
   partition it cannot feed its own event loop.</li>
-<li>Repartitioning is additive <em>by construction</em>: pinned blobs are carried over
-  verbatim, new cuts only fill unclaimed regions. A policy change therefore
-  has no effect on an existing scope; cuts are frozen once made. Only
-  <code>--force</code> can move a blob, and it says what it orphaned.</li>
-<li>An unknown path resolves to unmanaged-and-hot. Misses are normal, not errors.</li>
-<li><code>hot_always</code> is derived from structure and recomputed on every partition.
-  <code>pinned</code> is intent, carried over untouched, and the one part of a manifest
-  that cannot be reconstructed by re-scanning -- so back the manifest bucket
-  up.</li>
-<li>There is no minimum blob size. Coalescing groups by path adjacency, which
-  guesses at access correlation, and guessing wrong means restoring data
-  nobody asked for. Aggregating small objects belongs to the tape layer.</li>
-<li>The storage unit is the shard where sharding is in use. zarr-python inverts
-  the naming (<code>Array.chunks</code> is the <em>inner</em> chunk); getting this wrong makes
-  blobs larger than the target by the shard factor.</li>
-<li>Array roots come from where the metadata objects are, never from the shape
-  of chunk keys. A group named <code>c</code> is a group.</li>
+<li>Repartitioning is additive <em>by construction</em>: existing blobs are carried
+  over verbatim and new cuts only fill unclaimed regions. A policy change
+  therefore has no effect on an existing scope, because cuts are frozen once
+  made. Only <code>--force</code> can move a blob, and it says what it orphaned.</li>
+<li>Blob ids come from the full prefix and are independent of listing order,
+  because an id is a join key against tier state and, through it, a tape
+  address.</li>
+<li>An unknown path resolves to unmanaged-and-hot. Misses are normal, not
+  errors: unpartitioned stores, foreign data and fresh uploads all land there.</li>
+<li><code>hot_always</code> is derived from structure and recomputed every run. <code>pinned</code> is
+  intent, carried across, and the one part of a manifest that cannot be
+  reconstructed by re-scanning, so back the manifest bucket up.</li>
+<li>There is no minimum blob size. Coalescing guesses at access correlation from
+  path adjacency, and guessing wrong means restoring data nobody asked for.
+  Aggregating small objects belongs to the tape layer.</li>
 </ul>
-<h2 id="paths-and-urls">Paths and URLs<a class="headerlink" href="#paths-and-urls" title="Permanent link">&para;</a></h2>
-<p>Both <code>--data</code> and <code>--manifests</code> take either a URL or a plain path. These are
-equivalent:</p>
-<div class="highlight"><pre><span></span><code>--manifests /work/blobmap
---manifests ./blobmap
---manifests ~/blobmap
---manifests file:///work/blobmap
+<h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="operations/">Operations</a></td>
+<td>running it: what the parts are, what to configure, what breaks</td>
+</tr>
+<tr>
+<td><a href="internals/">Internals</a></td>
+<td>changing it: module layers, the two flows, a generated call graph</td>
+</tr>
+<tr>
+<td><a href="design/">Design</a></td>
+<td>why the pieces are shaped this way</td>
+</tr>
+<tr>
+<td><a href="https://waterpark.dkrz.de/blobmap/">Manifest format</a></td>
+<td>the published schema, and its stability policy</td>
+</tr>
+</tbody>
+</table>
+<h2 id="development">Development<a class="headerlink" href="#development" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>tox<span class="w">                 </span><span class="c1"># lint, types, tests, docs</span>
+tox<span class="w"> </span>-e<span class="w"> </span><span class="nb">test</span>
+tox<span class="w"> </span>-e<span class="w"> </span>docs-serve
 </code></pre></div>
-<p>A local manifest directory is created if it does not exist, since blobmap owns
-it. A missing <code>--data</code> path is an error rather than being created: silently
-accepting a typo there would make a scan report nothing found, which looks
-identical to an empty bucket.</p>
-<h2 id="connecting-to-s3">Connecting to S3<a class="headerlink" href="#connecting-to-s3" title="Permanent link">&para;</a></h2>
-<p><code>obstore</code> reads <code>AWS_ENDPOINT_URL</code>, <code>AWS_ACCESS_KEY_ID</code>, <code>AWS_SECRET_ACCESS_KEY</code>
-and <code>AWS_REGION</code> from the environment. With none of them set it assumes AWS
-and looks for instance credentials at <code>169.254.169.254</code>, which off EC2 hangs
-for the retry budget and then fails with a Rust backtrace that never mentions
-credentials.</p>
-<p>So for anything that is not AWS, either export those variables or pass the
-flags:</p>
-<div class="highlight"><pre><span></span><code>blobmap --data s3://cmip6 --endpoint https://s3.example.org \
-    --manifests file:///work/blobmap scan
+<p>Tests use no mocks. <code>MemoryStore</code> and <code>LocalStore</code> are real implementations of
+the same API as <code>S3Store</code>, so the same suite runs against all three and MinIO
+is one extra fixture rather than a second suite:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+<span class="nb">export</span><span class="w"> </span><span class="nv">BLOBMAP_TEST_S3_URL</span><span class="o">=</span>s3://blobmap-test
+<span class="nb">export</span><span class="w"> </span><span class="nv">BLOBMAP_TEST_S3_ENDPOINT</span><span class="o">=</span>http://localhost:9000
+<span class="nb">export</span><span class="w"> </span><span class="nv">AWS_ACCESS_KEY_ID</span><span class="o">=</span>minioadmin<span class="w"> </span><span class="nv">AWS_SECRET_ACCESS_KEY</span><span class="o">=</span>minioadmin
+<span class="nb">export</span><span class="w"> </span><span class="nv">AWS_REGION</span><span class="o">=</span>us-east-1
+pytest<span class="w"> </span>-q
 </code></pre></div>
-<p><code>--anonymous</code> skips credentials and signing entirely, which is the quickest
-way to read a public bucket and to avoid the metadata lookup. <code>--allow-http</code>
-is implied when the endpoint already starts with <code>http://</code>.</p>
-<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>blobmap --data s3://cordex --manifests s3://waterpark-blobmap \
-    scan --partition
-blobmap --data s3://cordex --manifests s3://waterpark-blobmap \
-    partition cordex/nukleus/eur11.zarr --dry-run
-blobmap --data s3://cordex --manifests s3://waterpark-blobmap \
-    resolve cordex/nukleus/eur11.zarr/tas/c/5000/0/0
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">obstore.store</span><span class="w"> </span><span class="kn">import</span> <span class="n">S3Store</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">blobmap</span><span class="w"> </span><span class="kn">import</span> <span class="n">ManifestStore</span><span class="p">,</span> <span class="n">Trie</span>
-
-<span class="n">trie</span> <span class="o">=</span> <span class="n">Trie</span><span class="p">()</span>
-<span class="n">trie</span><span class="o">.</span><span class="n">add_all</span><span class="p">(</span><span class="n">ManifestStore</span><span class="p">(</span><span class="n">S3Store</span><span class="p">(</span><span class="n">bucket</span><span class="o">=</span><span class="s2">"waterpark-blobmap"</span><span class="p">))</span><span class="o">.</span><span class="n">load_all</span><span class="p">())</span>
-<span class="n">trie</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="o">.</span><span class="n">blob_id</span>          <span class="c1"># or .kind == "hot" / "unmanaged"</span>
-</code></pre></div>
-<p><code>--dry-run</code> prints the per-array decision table. Expect to stare at it while
-tuning <code>t_max</code>.</p>
-<h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>pytest -q                      # memory + local backends
-docker compose up -d           # then export the vars in the compose file
-pytest -q                      # same suite, plus a real S3 backend
-</code></pre></div>
-<p><code>MemoryStore</code> and <code>LocalStore</code> implement the same API as <code>S3Store</code>, so nothing
-is mocked and MinIO is one extra fixture param rather than a second suite.</p>
-<h2 id="notes">Notes<a class="headerlink" href="#notes" title="Permanent link">&para;</a></h2>
-<p><code>obstore</code> 0.11: <code>LocalStore</code> supports create-if-absent but <em>not</em>
-update-if-etag, so a local repartition falls back to overwrite with a warning.
-On S3 both conditions work, and two jobs partitioning the same scope produce a
-conflict rather than last-writer-wins.</p>
-<p>The event driver needs MinIO configured with <code>format=access</code> and <code>queue_dir</code>
-set. Give the partitioner its own service account and list it in
-<code>ignore_principals</code>, or its metadata reads will look like user traffic --
-and tiering reads would mark every blob it archives as freshly accessed.</p>
-<p><code>EventPoller</code> needs a <code>root_of</code> callable (use <code>find_store_root</code>) to map a
-metadata write to its store root. Without it, two variables in one store
-debounce independently and the partitioner gets handed a sub-array as a scope.</p>
+<p>That run is what actually exercises conditional writes: <code>LocalStore</code> has no
+update-if-etag, so the <code>If-Match</code> path is untested without a real S3.</p>
+<p>See <a href="contributing/">Contributing</a>.</p>
+<h2 id="licence">Licence<a class="headerlink" href="#licence" title="Permanent link">&para;</a></h2>
+<p>BSD-3-Clause.</p>
 
 
 
