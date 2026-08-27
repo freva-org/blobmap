@@ -20,9 +20,9 @@ import logging
 import math
 import os
 import sys
-from typing import Sequence, Type
+from typing import Any, Sequence
 
-from . import pins
+from . import pins, theme
 from ._version import __version__
 from .backends import S3Options, StoreUnreachable, diagnose, open_store
 from .discover import scan
@@ -34,17 +34,6 @@ from .resolve import Trie
 from .schema import SCHEMA
 from .service import partition_store
 from .storage import Store
-
-try:
-    from rich_argparse import ArgumentDefaultsRichHelpFormatter
-
-    ArgFormatter: (
-        Type[argparse.ArgumentDefaultsHelpFormatter]
-        | Type[ArgumentDefaultsRichHelpFormatter]
-    ) = ArgumentDefaultsRichHelpFormatter
-except ImportError:  # pragma: no cover - optional dependency
-    ArgFormatter = argparse.ArgumentDefaultsHelpFormatter
-
 
 log = logging.getLogger(__name__)
 
@@ -139,6 +128,34 @@ def explain(arrays: Sequence[Array], manifest: Manifest) -> str:
     return "\n".join(lines)
 
 
+if theme.disabled():
+    _Formatter: Any = argparse.RawDescriptionHelpFormatter
+else:
+    try:  # pragma: no cover - optional dependency
+        from rich_argparse import RawDescriptionRichHelpFormatter as _Formatter
+    except ImportError:  # pragma: no cover - optional dependency
+        _Formatter = argparse.RawDescriptionHelpFormatter
+
+theme.apply(_Formatter)
+
+# Raw, not ArgumentDefaults: the epilog is a worked example whose line breaks
+# matter, and most flags here default to None, so appending "(default: None)"
+# to each would bury the help text that explains what the real fallback is.
+
+
+class _Parser(argparse.ArgumentParser):
+    """A parser that keeps the formatter when used as a subparser.
+
+    `add_parser` builds a fresh `ArgumentParser` and inherits `parser_class`
+    but *not* `formatter_class`, so without this every subcommand silently
+    falls back to plain argparse formatting.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs.setdefault("formatter_class", _Formatter)
+        super().__init__(*args, **kwargs)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser.
 
@@ -157,7 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  blobmap --data file:///work --manifests file:///work/.blobmap \\\n"
             "      resolve eur11.zarr/tas/c/5000/0/0\n"
         ),
-        formatter_class=ArgFormatter,
+        formatter_class=_Formatter,
     )
 
     p.add_argument(
@@ -241,9 +258,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub = p.add_subparsers(
-        dest="cmd",
-        required=True,
-        metavar="COMMAND",
+        dest="cmd", required=True, metavar="COMMAND", parser_class=_Parser
     )
 
     q = sub.add_parser(
@@ -253,7 +268,6 @@ def build_parser() -> argparse.ArgumentParser:
         "manifest. Repartitioning is additive: existing blobs "
         "are pinned, so ids and the tape addresses behind them "
         "survive.",
-        formatter_class=ArgFormatter,
     )
     q.add_argument(
         "scope",
@@ -288,7 +302,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Walk --data and report every zarr store, marking which "
         "already have a manifest. Descent stops at a store "
         "boundary.",
-        formatter_class=ArgFormatter,
     )
     s.add_argument(
         "root",
@@ -314,7 +327,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Load every manifest and resolve keys against them. The "
         "fastest way to check that a store is partitioned the "
         "way you think it is.",
-        formatter_class=ArgFormatter,
     )
     r.add_argument(
         "keys",
@@ -330,7 +342,6 @@ def build_parser() -> argparse.ArgumentParser:
         "show",
         help="list known scopes and epochs",
         description="One line per manifest: epoch, blob count and scope.",
-        formatter_class=ArgFormatter,
     )
 
     pin = sub.add_parser(
@@ -339,16 +350,16 @@ def build_parser() -> argparse.ArgumentParser:
         description="A pin is set once and persists, rather than being a flag "
         "passed on every partition run. Whether a dataset stays "
         "hot should not depend on shell history.",
-        formatter_class=ArgFormatter,
     )
-    pin_sub = pin.add_subparsers(dest="pin_cmd", required=True, metavar="ACTION")
+    pin_sub = pin.add_subparsers(
+        dest="pin_cmd", required=True, metavar="ACTION", parser_class=_Parser
+    )
 
     pin_add = pin_sub.add_parser(
         "add",
         help="pin a prefix",
         description="Records who pinned what, why, and optionally when it "
         "should be reviewed.",
-        formatter_class=ArgFormatter,
     )
     pin_add.add_argument(
         "scope",
@@ -386,7 +397,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="remove a pin",
         description="Makes the prefix eligible again. Nothing is archived "
         "until the tiering policy runs.",
-        formatter_class=ArgFormatter,
     )
     pin_rm.add_argument("scope", metavar="SCOPE")
     pin_rm.add_argument("prefix", metavar="PREFIX", nargs="?", default="")
@@ -397,7 +407,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Expired pins first, then open-ended ones, then the rest. "
         "Those first two categories are how a hot pool quietly "
         "fills.",
-        formatter_class=ArgFormatter,
     )
     pin_show.add_argument(
         "scope", metavar="SCOPE", nargs="?", help="restrict to one scope. Default: all."
@@ -412,7 +421,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Classifies every object against the manifests. The "
         "number that matters is 'unmanaged': data nothing claims, "
         "which grows silently and is invisible otherwise.",
-        formatter_class=ArgFormatter,
     )
     rep.add_argument(
         "root",
@@ -433,7 +441,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="print the manifest JSON Schema",
         description="Write the schema to stdout. This is the contract for "
         "any consumer, including ones not written in Python.",
-        formatter_class=ArgFormatter,
     )
     return p
 

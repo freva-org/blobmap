@@ -91,14 +91,17 @@ def test_coordinates_and_small_arrays_are_pinned_hot():
 
 
 def test_coalescing_groups_small_arrays():
-    m = partition("s/", store_arrays())
+    """Off by default now, but still correct when a deployment turns it on
+    because its HSM cannot bundle recalls."""
+    m = partition("s/", store_arrays(), policy=Policy(t_min_bytes=10 * GiB))
     grouped = [b for b in m.blobs if len(b.prefixes) > 1]
     assert grouped and set(grouped[0].prefixes) == {"pr/c", "hurs/c"}
 
 
 def test_tail_below_t_min_folds_into_previous_blob():
     arrays = [arr("a", 12 * GiB), arr("b", 1500 * GiB), arr("c", 2 * GiB)]
-    m = partition("s/", arrays, policy=Policy(t_hot_bytes=1))
+    m = partition("s/", arrays,
+                  policy=Policy(t_hot_bytes=1, t_min_bytes=10 * GiB))
     unbucketed = [b for b in m.blobs if b.bucket is None]
     assert unbucketed[0].prefixes == ("a/c", "c/c")
 
@@ -133,8 +136,10 @@ def test_new_variable_is_additive():
 
 def test_without_pinning_a_repartition_renumbers():
     """The failure pinning exists to prevent."""
-    before = partition("s/", store_arrays())
-    naive = partition("s/", store_arrays() + [arr("psl", 4 * GiB)])
+    policy = Policy(t_min_bytes=10 * GiB)
+    before = partition("s/", store_arrays(), policy=policy)
+    naive = partition("s/", store_arrays() + [arr("psl", 4 * GiB)],
+                      policy=policy)
     assert not diff(before, naive).is_additive
 
 
@@ -222,6 +227,7 @@ def test_coalesced_ids_name_every_prefix():
         Array("zoom_9/hurs", SHAPE, CHUNKS, 4, stored_bytes=2 * GiB),
         Array("zoom_9/tas", SHAPE, CHUNKS, 4, stored_bytes=400 * GiB),
     ]
-    m = partition("s", arrays, policy=Policy(t_hot_bytes=1))
+    m = partition("s", arrays,
+                  policy=Policy(t_hot_bytes=1, t_min_bytes=10 * GiB))
     coalesced = [b for b in m.blobs if b.bucket is None][0]
     assert coalesced.id == "b_zoom_9_pr_c_zoom_9_hurs_c"

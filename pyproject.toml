@@ -68,6 +68,33 @@ testpaths = ["tests", "src/blobmap"]
 addopts = "--doctest-modules"
 pythonpath = ["src", "."]
 
+[tool.coverage.run]
+# Branch coverage, not just line. The partitioner is a decision tree: an `if`
+# whose false arm is never taken is exactly the bug worth catching, and line
+# coverage cannot see it.
+branch = true
+source = ["blobmap"]
+
+[tool.coverage.paths]
+# so a src-layout checkout and an installed copy combine into one report
+source = ["src/blobmap", "*/site-packages/blobmap"]
+
+[tool.coverage.report]
+fail_under = 95
+precision = 2
+show_missing = true
+skip_covered = false
+ignore_errors = false
+exclude_lines = [
+    "pragma: no cover",
+    # Protocol and stub bodies: signatures, not code
+    "^\\s*\\.\\.\\.$",
+    "if TYPE_CHECKING:",
+    # entry point guard; the callable itself is tested directly
+    "if __name__ == __main__:",
+    "raise NotImplementedError",
+]
+
 [tool.mypy]
 strict = true
 warn_unused_ignores = true
@@ -95,8 +122,7 @@ deps = black
        codespell
        bandit[toml]
 commands =
-    python3 -m isort --check --profile black -t py313 -l 79 src
-    python3 -m black --check src
+    isort --check --profile black -t py313 -l 79 src
     python3 -m flake8 src --count --max-complexity=10 --ignore=F405,F403,E704,W503,C901 --max-line-length=120 --statistics --show-source
     codespell {posargs: --quiet-level=2} src/ docs/
     python3 -m pydocstyle src/blobmap

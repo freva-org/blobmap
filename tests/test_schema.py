@@ -20,7 +20,7 @@ jsonschema = pytest.importorskip("jsonschema")
 
 def document(**overrides) -> dict:
     base = {
-        "schema_version": 2,
+        "schema_version": 3,
         "scope": "cordex/a.zarr",
         "epoch": 1,
         "generated_at": "2026-01-01T00:00:00+00:00",
@@ -39,7 +39,7 @@ def document(**overrides) -> dict:
 
 
 INVALID = {
-    "bad version": document(schema_version=1),
+    "bad version": document(schema_version=2),
     "missing scope": {k: v for k, v in document().items() if k != "scope"},
     "epoch zero": document(epoch=0),
     "scope not a string": document(scope=42),
@@ -91,7 +91,7 @@ def test_walker_agrees_with_jsonschema(case):
 
 
 def test_optional_fields_may_be_absent():
-    minimal = {"schema_version": 2, "scope": "s", "epoch": 1,
+    minimal = {"schema_version": 3, "scope": "s", "epoch": 1,
                "hot_always": [], "blobs": []}
     validate_document(minimal)
     jsonschema.validate(minimal, SCHEMA)

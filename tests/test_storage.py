@@ -65,3 +65,20 @@ def test_update_with_stale_etag(store, caplog):
         except Conflict:
             return
     assert "last-writer-win" in caplog.text
+
+
+def test_etags_round_trip_verbatim(store):
+    """obstore 0.11.1 returns etags quoted and expects the same string back.
+    Normalising them for tidiness silently broke every conditional update,
+    which only shows up when two jobs race."""
+    from blobmap.storage import _etag
+    etag = put_bytes(store, "m.json", b"1", expect_absent=True)
+    assert head(store, "m.json").etag == etag
+    put_bytes(store, "m.json", b"2", etag=etag)      # must not raise
+    assert get_bytes(store, "m.json") == b"2"
+
+
+def test_etag_is_not_reinterpreted():
+    from blobmap.storage import _etag
+    assert _etag('"abc"') == '"abc"'
+    assert _etag(None) is None
