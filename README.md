@@ -5,6 +5,13 @@
 </div>
 
 ---
+[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
+[![CI](https://github.com/freva-org/blobmap/actions/workflows/ci.yaml/badge.svg)](https://github.com/freva-org/blobmap/actions/workflows/ci.yaml)
+[![codecov](https://codecov.io/gh/freva-org/blobmap/graph/badge.svg?token=ZoqyoUkeJw)](https://codecov.io/gh/freva-org/blomap)
+[![Docs](https://img.shields.io/badge/docs-blobmap-blue?logo=read-the-docs)](https://freva-org.github.io/blobmap)
+[![PyPI](https://img.shields.io/pypi/v/blobmap?logo=pypi)](https://pypi.org/project/blobmap)
+[![Python Versions](https://img.shields.io/pypi/pyversions/blobmap)](https://pypi.org/project/blobmap/)
+
 
 A zarr store is hundreds of thousands of objects with no structure S3 can see.
 Tiering it needs a unit that is neither a chunk nor the whole store:

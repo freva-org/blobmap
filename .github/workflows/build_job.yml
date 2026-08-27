@@ -15,30 +15,44 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v6
         with:
           submodules: recursive
-      -
-        name: Setup Python
+
+      - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.x"
-      -
-        name: Install flit
+
+      # flit reads __version__ from the package, so a tag that disagrees would
+      # publish one version under a release labelled another. Cheap to check,
+      # impossible to fix once uploaded: PyPI does not allow reuse of a
+      # version number.
+      - name: Check the tag matches the package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PKG=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/blobmap/version.py)
+          if [ "$VERSION" != "$PKG" ]; then
+            echo "::error::tag says $VERSION, package says $PKG"
+            exit 1
+          fi
+          echo "both at $VERSION"
+
+      - name: Install flit
         run: python -m pip install flit
-      -
-        name: Building package 📦 with flit
+
+      - name: Building package 📦 with flit
         run: flit build
 
+      # Trusted publishing, which is what `id-token: write` and the pypi
+      # environment above are for. No token to store or rotate. Passing a
+      # `password` here would override it.
       - name: Publish to PyPI
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
           skip-existing: true
           verbose: true
           packages-dir: dist
@@ -49,24 +63,24 @@ jobs:
     permissions:
       contents: write
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v6
 
-      -
-        name: Extract release notes
-        id: notes
+      - name: Extract release notes
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          # Extract everything between this version header and the next one (or EOF)
-          NOTES=$(awk "/^## v${VERSION}/{found=1; next} /^## v/{if(found) exit} found" docs/whats-new.md)
-          # Write to file to avoid quoting issues
-          echo "$NOTES" > /tmp/release-notes.md
+          # Everything between "## <version>" and the next "## " heading.
+          # Matching the whole line avoids "## 0.5" also matching "## 0.5.1".
+          awk -v v="$VERSION" '$0 == "## " v {f=1; next} /^## /{if(f) exit} f' \
+              CHANGELOG.md > /tmp/release-notes.md
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "::error::no '## $VERSION' section in CHANGELOG.md"
+            exit 1
+          fi
+          cat /tmp/release-notes.md
 
-      -
-        name: Create GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           body_path: /tmp/release-notes.md
