@@ -1,0 +1,162 @@
+[build-system]
+requires = ["flit_core>=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "blobmap"
+description = "Decide which zarr objects move to tape together, and read that back"
+readme = "README.md"
+dynamic = ["version"]
+license = {file = "LICENSE"}
+authors = [{name = "DKRZ", email = "data@dkrz.de"}]
+maintainers = [{name = "DKRZ", email = "data@dkrz.de"}]
+keywords = ["zarr", "s3", "hsm", "tape", "tiering", "climate"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Archiving",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Typing :: Typed",
+]
+requires-python = ">=3.11"
+
+# one runtime dependency, deliberately. The manifest schema is validated by a
+# walker in schema.py that is stdlib only; jsonschema is used in the tests to
+# cross-check that walker against a real implementation, which is a dev
+# concern rather than something a consumer should have to install.
+dependencies = ["obstore>=0.11"]
+
+[project.urls]
+Documentation = "https://freva-org.github.io/blobmap/"
+Source = "https://github.com/freva-org/blobmap"
+Changelog = "https://github.com/freva-org/blobmap/blob/main/CHANGELOG.md"
+Schema = "https://waterpark.dkrz.de/blobmap/manifest-v3.schema.json"
+
+[project.optional-dependencies]
+pretty = ["rich-argparse>=1.5"]
+tests = [
+    "pytest",
+    "pytest-cov",
+    "jsonschema",       # cross-checks the hand-written schema walker
+    "rich-argparse",    # so the themed help path is exercised, not skipped
+]
+docs = [
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+    "pymdown-extensions>=10.0",
+    "mike",
+    "black",            # mkdocstrings formats signatures with it
+]
+
+[project.scripts]
+blobmap = "blobmap.cli:_run"
+
+[tool.pydocstyle]
+add-ignore = "D407, D105, D107"
+
+[tool.pytest.ini_options]
+# src layout: the package lives at src/blobmap, and the doctests in it are
+# part of the suite
+testpaths = ["tests", "src/blobmap"]
+addopts = "--doctest-modules"
+pythonpath = ["src", "."]
+
+[tool.coverage.run]
+# Branch coverage, not just line. The partitioner is a decision tree: an `if`
+# whose false arm is never taken is exactly the bug worth catching, and line
+# coverage cannot see it.
+branch = true
+source = ["blobmap"]
+
+[tool.coverage.paths]
+# so a src-layout checkout and an installed copy combine into one report
+source = ["src/blobmap", "*/site-packages/blobmap"]
+
+[tool.coverage.report]
+fail_under = 95
+precision = 2
+show_missing = true
+skip_covered = false
+ignore_errors = false
+exclude_lines = [
+    "pragma: no cover",
+    # Protocol and stub bodies: signatures, not code
+    "^\\s*\\.\\.\\.$",
+    "if TYPE_CHECKING:",
+    # entry point guard; the callable itself is tested directly
+    "if __name__ == __main__:",
+    "raise NotImplementedError",
+]
+
+[tool.mypy]
+strict = true
+warn_unused_ignores = true
+files = ["src/blobmap"]
+
+[[tool.mypy.overrides]]
+module = ["obstore.*", "rich_argparse.*"]
+ignore_missing_imports = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+min_version = 4.0
+env_list = lint, types, docs
+[testenv]
+passenv = *
+parallel_show_output = false
+
+[testenv:lint]
+description = "Check code quality."
+deps = black
+       isort
+       flake8
+       pydocstyle
+       codespell
+       bandit[toml]
+commands =
+    isort --check --profile black -t py313 -l 79 src
+    python3 -m flake8 src --count --max-complexity=10 --ignore=F405,F403,E704,W503,C901 --max-line-length=120 --statistics --show-source
+    codespell {posargs: --quiet-level=2} src/ docs/
+    python3 -m pydocstyle src/blobmap
+    bandit -r src/blobmap --severity-level medium --confidence-level high
+
+[testenv:test]
+setenv =
+    VIRTUALENV_SYSTEM_SITE_PACKAGES=true
+description = "Run the unit tests."
+deps = -e .[tests]
+commands =
+    python3 -m pytest -vv --cov=blobmap --cov-report=html:coverage_report --junitxml report.xml --cov-report xml
+    python3 -m coverage report --fail-under=90 --precision=2
+
+[testenv:docs]
+description = Build docs. Usage: tox -e docs
+deps =
+    -e .[docs]
+    codespell
+commands =
+    codespell {posargs: --quiet-level=2} docs
+    mkdocs build --strict -f mkdocs.yml
+
+[testenv:docs-serve]
+description = Serve docs locally.
+deps =
+    -e .[docs]
+commands =
+    mkdocs serve -f mkdocs.yml --strict -a localhost:8000 --watch docs
+
+[testenv:types]
+description = Run mypy in strict mode
+deps = -e .[pretty,tests]
+    mypy>=1.11
+commands =
+    mypy
+"""
