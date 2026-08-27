@@ -1,0 +1,2352 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Decide which zarr objects move to tape together">
+      
+      
+      
+        <link rel="canonical" href="https://freva-org.github.io/blobmap/dev/reference/partition/">
+      
+      
+        <link rel="prev" href="../schema/">
+      
+      
+        <link rel="next" href="../resolve/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>partition - Blobmap</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#blobmap.partition" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Blobmap" class="md-header__button md-logo" aria-label="Blobmap" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Blobmap
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              partition
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/freva-org/blobmap" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    freva-org/blobmap
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Blobmap" class="md-nav__button md-logo" aria-label="Blobmap" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Blobmap
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/freva-org/blobmap" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    freva-org/blobmap
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Design
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../internals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Internals
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    partition
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    partition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#blobmap.partition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        partition
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="partition">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#blobmap.partition.Diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diff
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diff">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#blobmap.partition.Diff.is_additive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_additive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blobmap.partition.Diff.is_empty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_empty
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blobmap.partition.Diff.describe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        describe
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blobmap.partition.bucket_width" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bucket_width
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blobmap.partition.partition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        partition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blobmap.partition.diff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        diff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resolve/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    resolve
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hierarchy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    hierarchy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manifests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    manifests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../pins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pins
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../discover/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    discover
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cli
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>partition</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<h2 id="blobmap.partition" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">blobmap.partition</span>
+
+
+<a href="#blobmap.partition" class="headerlink" title="Permanent link">&para;</a></h2>
+
+    <div class="doc doc-contents first">
+
+        <p>The decisions: arrays in, <a class="autorefs autorefs-internal" title="Manifest
+
+
+  
+      dataclass
+  " href="../model/#blobmap.model.Manifest"><code>Manifest</code></a> out.</p>
+<p>Pure functions with no I/O. Everything that actually matters lives here, and
+it is testable with hand-written <a class="autorefs autorefs-internal" title="Array
+
+
+  
+      dataclass
+  " href="../model/#blobmap.model.Array"><code>Array</code></a> objects in
+milliseconds.</p>
+<p>The cut proceeds top down:</p>
+<ol>
+<li>Coordinates and arrays under <code>t_hot_bytes</code> are pinned hot.</li>
+<li>If the whole scope fits in <code>t_max_bytes</code>, it becomes one blob. This is the
+   common case, and the best outcome for tape: small stores are read whole,
+   so one mount beats one per variable.</li>
+<li>Arrays over <code>t_max_bytes</code> are bucketed, which is the only way to cut
+   <em>inside</em> an array.</li>
+<li>What is left is coalesced with its neighbours until each group clears
+   <code>t_min_bytes</code>, so a wide tree of small variables does not cost a tape
+   mount per gigabyte.</li>
+</ol>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>from blobmap.model import Array, GiB, Policy
+arrays = [Array("time", (400,), (400,), 8, is_coordinate=True),
+...           Array("tas", (400, 4, 4), (10, 4, 4), 4,
+...                 stored_bytes=400 * GiB)]
+manifest = partition("cordex/a.zarr", arrays)
+sorted(b.id for b in manifest.blobs)
+['b_tas']
+"time/**" in manifest.hot_always
+True</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="blobmap.partition.Diff" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Diff</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#blobmap.partition.Diff" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">Diff</span><span class="p">(</span>
+    <span class="n">added</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Blob</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+    <span class="n">removed</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Blob</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+    <span class="n">modified</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Blob</span><span class="p">,</span> <span class="n">Blob</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
+<span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>What a repartition changed.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="blobmap.partition.Diff.added">added</span></code></td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="Blob
+
+
+  
+      dataclass
+   (blobmap.model.Blob)" href="../model/#blobmap.model.Blob">Blob</a>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Blobs that did not exist before. Always safe.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="blobmap.partition.Diff.removed">removed</span></code></td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="Blob
+
+
+  
+      dataclass
+   (blobmap.model.Blob)" href="../model/#blobmap.model.Blob">Blob</a>, ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Blobs that disappeared. Any tape copy held against these ids
+is now orphaned.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="blobmap.partition.Diff.modified">modified</span></code></td>
+            <td>
+                  <code><span title="tuple">tuple</span>[<span title="tuple">tuple</span>[<a class="autorefs autorefs-internal" title="Blob
+
+
+  
+      dataclass
+   (blobmap.model.Blob)" href="../model/#blobmap.model.Blob">Blob</a>, <a class="autorefs autorefs-internal" title="Blob
+
+
+  
+      dataclass
+   (blobmap.model.Blob)" href="../model/#blobmap.model.Blob">Blob</a>], ...]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pairs of (old, new) for blobs whose definition changed. The
+id still resolves but now covers different objects, so the tape
+copy no longer matches.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>from blobmap.model import Blob, Manifest
+old = Manifest("s", (Blob("a", ("a",)),), ())
+new = Manifest("s", (Blob("a", ("a",)), Blob("b", ("b",))), ())
+diff(old, new).is_additive
+True</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="blobmap.partition.Diff.is_additive" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">is_additive</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#blobmap.partition.Diff.is_additive" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">is_additive</span><span class="p">:</span> <span class="nb">bool</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether no existing blob definition changed or disappeared.</p>
+<p>Anything else invalidates ids that blobtier holds tape addresses for.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>True when only additions were made.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="blobmap.partition.Diff.is_empty" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">is_empty</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#blobmap.partition.Diff.is_empty" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="n">is_empty</span><span class="p">:</span> <span class="nb">bool</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Whether nothing changed at all.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>True when there is nothing to write.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="blobmap.partition.Diff.describe" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">describe</span>
+
+
+<a href="#blobmap.partition.Diff.describe" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">describe</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Render for a log line or <code>--dry-run</code> output.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One line per change, prefixed <code>+</code>, <code>-</code> or <code>~</code>, or <code>(no change)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/blobmap/partition.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">428</span>
+<span class="normal">429</span>
+<span class="normal">430</span>
+<span class="normal">431</span>
+<span class="normal">432</span>
+<span class="normal">433</span>
+<span class="normal">434</span>
+<span class="normal">435</span>
+<span class="normal">436</span>
+<span class="normal">437</span>
+<span class="normal">438</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Render for a log line or `--dry-run` output.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        One line per change, prefixed `+`, `-` or `~`, or `(no change)`.</span>
+<span class="sd">    """</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"+ </span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">prefixes</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">added</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"- </span><span class="si">{</span><span class="n">b</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">prefixes</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">removed</span><span class="p">]</span>
+    <span class="n">lines</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"~ </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">o</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">n</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span>
+              <span class="k">for</span> <span class="n">o</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">modified</span><span class="p">]</span>
+    <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">"(no change)"</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="blobmap.partition.bucket_width" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">bucket_width</span>
+
+
+<a href="#blobmap.partition.bucket_width" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">bucket_width</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span> <span class="n">policy</span><span class="p">:</span> <span class="n">Policy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Choose how many objects along dimension 0 go into one blob.</p>
+<p>Two bounds apply:</p>
+<ul>
+<li><em>ideal</em> hits <code>t_max_bytes</code> at the compression observed today</li>
+<li><em>hard</em> keeps the blob under <code>width_clamp * t_max_bytes</code> even if
+  compression degrades to nothing, computed from uncompressed object
+  size, which cannot change without rewriting the array</li>
+</ul>
+<p>The result is rounded down to a power of two so a ratio drifting from 2.0
+to 2.3 does not move the width and renumber every blob. Rounding is
+skipped below <code>pow2_floor</code>, where it would throw away too much of the
+target. That is the common case for sharded arrays, which have far fewer
+and larger objects.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>a</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Array
+
+
+  
+      dataclass
+   (blobmap.model.Array)" href="../model/#blobmap.model.Array">Array</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The array to size. Its
+<a class="autorefs autorefs-internal" title="object_shape
+
+
+  
+      property
+  " href="../model/#blobmap.model.Array.object_shape"><code>object_shape</code></a> is the unit,
+so a sharded array is measured in shards.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>policy</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Policy
+
+
+  
+      dataclass
+   (blobmap.model.Policy)" href="../model/#blobmap.model.Policy">Policy</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Thresholds to apply.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Objects per blob, at least 1.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>Logs a warning when a single object already exceeds <code>t_max_bytes</code>,
+since there is then nothing left to cut.</p>
+</details>
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>from blobmap.model import Array, GiB, Policy
+plain = Array("tas", (1_314_000, 412, 424), (128, 412, 424), 4,
+...               stored_bytes=459 * GiB)
+bucket_width(plain, Policy())
+2048</p>
+</blockquote>
+</blockquote>
+</blockquote>
+<p>The same bytes in a 10x sharded array is a tenth of the objects, so
+the width falls with it. Reading <code>chunks</code> instead of <code>shards</code> here
+would give both arrays the same width, and blobs 10x the target:</p>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>sharded = Array("tas", (1_314_000, 412, 424), (128, 412, 424), 4,
+...                 shards=(1280, 412, 424), stored_bytes=459 * GiB)
+bucket_width(sharded, Policy())
+128</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/blobmap/partition.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 51</span>
+<span class="normal"> 52</span>
+<span class="normal"> 53</span>
+<span class="normal"> 54</span>
+<span class="normal"> 55</span>
+<span class="normal"> 56</span>
+<span class="normal"> 57</span>
+<span class="normal"> 58</span>
+<span class="normal"> 59</span>
+<span class="normal"> 60</span>
+<span class="normal"> 61</span>
+<span class="normal"> 62</span>
+<span class="normal"> 63</span>
+<span class="normal"> 64</span>
+<span class="normal"> 65</span>
+<span class="normal"> 66</span>
+<span class="normal"> 67</span>
+<span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">bucket_width</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Array</span><span class="p">,</span> <span class="n">policy</span><span class="p">:</span> <span class="n">Policy</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Choose how many objects along dimension 0 go into one blob.</span>
+
+<span class="sd">    Two bounds apply:</span>
+
+<span class="sd">    * *ideal* hits `t_max_bytes` at the compression observed today</span>
+<span class="sd">    * *hard* keeps the blob under `width_clamp * t_max_bytes` even if</span>
+<span class="sd">      compression degrades to nothing, computed from uncompressed object</span>
+<span class="sd">      size, which cannot change without rewriting the array</span>
+
+<span class="sd">    The result is rounded down to a power of two so a ratio drifting from 2.0</span>
+<span class="sd">    to 2.3 does not move the width and renumber every blob. Rounding is</span>
+<span class="sd">    skipped below `pow2_floor`, where it would throw away too much of the</span>
+<span class="sd">    target. That is the common case for sharded arrays, which have far fewer</span>
+<span class="sd">    and larger objects.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        a: The array to size. Its</span>
+<span class="sd">            [`object_shape`][blobmap.model.Array.object_shape] is the unit,</span>
+<span class="sd">            so a sharded array is measured in shards.</span>
+<span class="sd">        policy: Thresholds to apply.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Objects per blob, at least 1.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Logs a warning when a single object already exceeds `t_max_bytes`,</span>
+<span class="sd">        since there is then nothing left to cut.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; from blobmap.model import Array, GiB, Policy</span>
+<span class="sd">        &gt;&gt;&gt; plain = Array("tas", (1_314_000, 412, 424), (128, 412, 424), 4,</span>
+<span class="sd">        ...               stored_bytes=459 * GiB)</span>
+<span class="sd">        &gt;&gt;&gt; bucket_width(plain, Policy())</span>
+<span class="sd">        2048</span>
+
+<span class="sd">        The same bytes in a 10x sharded array is a tenth of the objects, so</span>
+<span class="sd">        the width falls with it. Reading `chunks` instead of `shards` here</span>
+<span class="sd">        would give both arrays the same width, and blobs 10x the target:</span>
+
+<span class="sd">        &gt;&gt;&gt; sharded = Array("tas", (1_314_000, 412, 424), (128, 412, 424), 4,</span>
+<span class="sd">        ...                 shards=(1280, 412, 424), stored_bytes=459 * GiB)</span>
+<span class="sd">        &gt;&gt;&gt; bucket_width(sharded, Policy())</span>
+<span class="sd">        128</span>
+<span class="sd">    """</span>
+    <span class="n">ideal</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">policy</span><span class="o">.</span><span class="n">t_max_bytes</span> <span class="o">//</span> <span class="n">a</span><span class="o">.</span><span class="n">avg_object_bytes</span><span class="p">)</span>
+    <span class="n">hard</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="n">policy</span><span class="o">.</span><span class="n">width_clamp</span> <span class="o">*</span> <span class="n">policy</span><span class="o">.</span><span class="n">t_max_bytes</span><span class="p">)</span>
+               <span class="o">//</span> <span class="n">a</span><span class="o">.</span><span class="n">uncompressed_object_bytes</span><span class="p">)</span>
+    <span class="n">width</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">ideal</span><span class="p">,</span> <span class="n">hard</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">width</span> <span class="o">&gt;=</span> <span class="n">policy</span><span class="o">.</span><span class="n">pow2_floor</span><span class="p">:</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="n">width</span><span class="o">.</span><span class="n">bit_length</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">width</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">a</span><span class="o">.</span><span class="n">avg_object_bytes</span> <span class="o">&gt;</span> <span class="n">policy</span><span class="o">.</span><span class="n">t_max_bytes</span><span class="p">:</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2">: a single object is </span><span class="si">%.1f</span><span class="s2"> GiB, above t_max -- cannot "</span>
+                    <span class="s2">"cut finer than one object"</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">path</span><span class="p">,</span>
+                    <span class="n">a</span><span class="o">.</span><span class="n">avg_object_bytes</span> <span class="o">/</span> <span class="n">GiB</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">width</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="blobmap.partition.partition" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">partition</span>
+
+
+<a href="#blobmap.partition.partition" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">partition</span><span class="p">(</span>
+    <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">arrays</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Array</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">policy</span><span class="p">:</span> <span class="n">Policy</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">previous</span><span class="p">:</span> <span class="n">Manifest</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Manifest</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compute the blob definitions for one scope.</p>
+<p>When <code>previous</code> is given its blobs are <em>pinned</em>: carried over byte
+identical, with new cuts only in regions no existing blob claims. That is
+what keeps blob ids, and the tape addresses blobtier holds against them,
+valid across a repartition. Growth along a bucketed dimension needs no
+repartition at all, since the id is arithmetic.</p>
+<p>Because pinning is unconditional, a policy change alone has no effect on
+an existing scope. Cuts are frozen once made. Pass <code>previous=None</code> to
+recompute from scratch, which is the only way to move a blob and the only
+way to orphan a tape copy.</p>
+<p><code>hot_always</code> is always recomputed, since it follows from the store's
+structure: hot data is never archived, so there is no state to invalidate,
+and an array that grew past <code>t_hot_bytes</code> should stop being held back.
+<code>pinned</code> is carried over untouched, because it follows from intent rather
+than structure and can only be changed deliberately.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>scope</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Prefix these definitions apply to, relative to the data store.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>arrays</code>
+            </td>
+            <td>
+                  <code><span title="list">list</span>[<a class="autorefs autorefs-internal" title="Array
+
+
+  
+      dataclass
+   (blobmap.model.Array)" href="../model/#blobmap.model.Array">Array</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Every array under the scope, from
+<a class="autorefs autorefs-internal" title="read_arrays" href="../hierarchy/#blobmap.hierarchy.read_arrays"><code>read_arrays</code></a> or written by hand.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>policy</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Policy
+
+
+  
+      dataclass
+   (blobmap.model.Policy)" href="../model/#blobmap.model.Policy">Policy</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Thresholds. Defaults to <code>previous.policy</code> when repartitioning,
+else to <a class="autorefs autorefs-internal" title="Policy
+
+
+  
+      dataclass
+  " href="../model/#blobmap.model.Policy"><code>Policy</code></a> defaults.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>previous</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Manifest
+
+
+  
+      dataclass
+   (blobmap.model.Manifest)" href="../model/#blobmap.model.Manifest">Manifest</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The manifest currently in effect, whose blobs are pinned.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Manifest
+
+
+  
+      dataclass
+   (blobmap.model.Manifest)" href="../model/#blobmap.model.Manifest">Manifest</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A validated <code>Manifest</code>. The epoch is carried over unchanged; callers</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Manifest
+
+
+  
+      dataclass
+   (blobmap.model.Manifest)" href="../model/#blobmap.model.Manifest">Manifest</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>that intend to write should use</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Manifest
+
+
+  
+      dataclass
+   (blobmap.model.Manifest)" href="../model/#blobmap.model.Manifest">Manifest</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><a class="autorefs autorefs-internal" title="bumped" href="../model/#blobmap.model.Manifest.bumped"><code>bumped</code></a>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the result fails validation, which would indicate a
+bug in the cut rather than bad input.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <blockquote>
+<blockquote>
+<blockquote>
+<p>from blobmap.model import Array, GiB
+first = partition("s", [Array("tas", (400, 4, 4), (10, 4, 4), 4,
+...                                stored_bytes=400 * GiB)])
+grown = partition("s", [Array("tas", (800, 4, 4), (10, 4, 4), 4,
+...                                stored_bytes=800 * GiB)],
+...                   previous=first)
+diff(first, grown).is_empty          # an append changes nothing
+True</p>
+</blockquote>
+</blockquote>
+</blockquote>
+</details>
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/blobmap/partition.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span>
+<span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span>
+<span class="normal">198</span>
+<span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">partition</span><span class="p">(</span>
+    <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">arrays</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Array</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">policy</span><span class="p">:</span> <span class="n">Policy</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">previous</span><span class="p">:</span> <span class="n">Manifest</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Manifest</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Compute the blob definitions for one scope.</span>
+
+<span class="sd">    When `previous` is given its blobs are *pinned*: carried over byte</span>
+<span class="sd">    identical, with new cuts only in regions no existing blob claims. That is</span>
+<span class="sd">    what keeps blob ids, and the tape addresses blobtier holds against them,</span>
+<span class="sd">    valid across a repartition. Growth along a bucketed dimension needs no</span>
+<span class="sd">    repartition at all, since the id is arithmetic.</span>
+
+<span class="sd">    Because pinning is unconditional, a policy change alone has no effect on</span>
+<span class="sd">    an existing scope. Cuts are frozen once made. Pass `previous=None` to</span>
+<span class="sd">    recompute from scratch, which is the only way to move a blob and the only</span>
+<span class="sd">    way to orphan a tape copy.</span>
+
+<span class="sd">    `hot_always` is always recomputed, since it follows from the store's</span>
+<span class="sd">    structure: hot data is never archived, so there is no state to invalidate,</span>
+<span class="sd">    and an array that grew past `t_hot_bytes` should stop being held back.</span>
+<span class="sd">    `pinned` is carried over untouched, because it follows from intent rather</span>
+<span class="sd">    than structure and can only be changed deliberately.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        scope: Prefix these definitions apply to, relative to the data store.</span>
+<span class="sd">        arrays: Every array under the scope, from</span>
+<span class="sd">            [`read_arrays`][blobmap.hierarchy.read_arrays] or written by hand.</span>
+<span class="sd">        policy: Thresholds. Defaults to `previous.policy` when repartitioning,</span>
+<span class="sd">            else to [`Policy`][blobmap.model.Policy] defaults.</span>
+<span class="sd">        previous: The manifest currently in effect, whose blobs are pinned.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A validated `Manifest`. The epoch is carried over unchanged; callers</span>
+<span class="sd">        that intend to write should use</span>
+<span class="sd">        [`bumped`][blobmap.model.Manifest.bumped].</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the result fails validation, which would indicate a</span>
+<span class="sd">            bug in the cut rather than bad input.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; from blobmap.model import Array, GiB</span>
+<span class="sd">        &gt;&gt;&gt; first = partition("s", [Array("tas", (400, 4, 4), (10, 4, 4), 4,</span>
+<span class="sd">        ...                                stored_bytes=400 * GiB)])</span>
+<span class="sd">        &gt;&gt;&gt; grown = partition("s", [Array("tas", (800, 4, 4), (10, 4, 4), 4,</span>
+<span class="sd">        ...                                stored_bytes=800 * GiB)],</span>
+<span class="sd">        ...                   previous=first)</span>
+<span class="sd">        &gt;&gt;&gt; diff(first, grown).is_empty          # an append changes nothing</span>
+<span class="sd">        True</span>
+<span class="sd">    """</span>
+    <span class="n">policy</span> <span class="o">=</span> <span class="n">policy</span> <span class="ow">or</span> <span class="p">(</span><span class="n">previous</span><span class="o">.</span><span class="n">policy</span> <span class="k">if</span> <span class="n">previous</span> <span class="k">else</span> <span class="n">Policy</span><span class="p">())</span>
+
+    <span class="c1"># Pins are intent, so they survive a repartition. hot_always is derived</span>
+    <span class="c1"># from structure, so it is recomputed.</span>
+    <span class="n">pinned</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Pin</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">previous</span><span class="o">.</span><span class="n">pinned</span> <span class="k">if</span> <span class="n">previous</span> <span class="k">else</span> <span class="p">()</span>
+
+    <span class="n">hot</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">default_hot_always</span><span class="p">()</span>
+    <span class="n">payload</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Array</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arrays</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">is_coordinate</span> <span class="ow">or</span> <span class="n">a</span><span class="o">.</span><span class="n">total_bytes</span> <span class="o">&lt;</span> <span class="n">policy</span><span class="o">.</span><span class="n">t_hot_bytes</span><span class="p">:</span>
+            <span class="n">hot</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">/**"</span> <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">path</span> <span class="k">else</span> <span class="s2">"**"</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">pin</span><span class="o">.</span><span class="n">covers</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">path</span><span class="p">)</span> <span class="k">for</span> <span class="n">pin</span> <span class="ow">in</span> <span class="n">pinned</span><span class="p">):</span>
+            <span class="c1"># deliberately held hot; giving it a blob would let the tiering</span>
+            <span class="c1"># policy archive it the moment the pin is forgotten</span>
+            <span class="n">hot</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">/**"</span> <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">path</span> <span class="k">else</span> <span class="s2">"**"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">payload</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+    <span class="n">carried</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Blob</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">previous</span><span class="o">.</span><span class="n">blobs</span> <span class="k">if</span> <span class="n">previous</span> <span class="k">else</span> <span class="p">()</span>
+    <span class="n">unclaimed</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">payload</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">_claimed</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">carried</span><span class="p">)]</span>
+    <span class="n">taken</span> <span class="o">=</span> <span class="p">{</span><span class="n">b</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">carried</span><span class="p">}</span>
+    <span class="n">blobs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">carried</span><span class="p">)</span> <span class="o">+</span> <span class="n">_cut</span><span class="p">(</span><span class="n">unclaimed</span><span class="p">,</span> <span class="n">policy</span><span class="p">,</span> <span class="n">taken</span><span class="p">,</span> <span class="n">fresh</span><span class="o">=</span><span class="ow">not</span> <span class="n">carried</span><span class="p">)</span>
+
+    <span class="n">manifest</span> <span class="o">=</span> <span class="n">Manifest</span><span class="p">(</span>
+        <span class="n">scope</span><span class="o">=</span><span class="n">scope</span><span class="p">,</span>
+        <span class="n">blobs</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">blobs</span><span class="p">),</span>
+        <span class="n">hot_always</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">hot</span><span class="p">),</span>
+        <span class="n">pinned</span><span class="o">=</span><span class="n">pinned</span><span class="p">,</span>
+        <span class="n">policy</span><span class="o">=</span><span class="n">policy</span><span class="p">,</span>
+        <span class="n">epoch</span><span class="o">=</span><span class="n">previous</span><span class="o">.</span><span class="n">epoch</span> <span class="k">if</span> <span class="n">previous</span> <span class="k">else</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">generated_at</span><span class="o">=</span><span class="n">now</span><span class="p">(),</span>
+        <span class="n">provenance</span><span class="o">=</span><span class="p">{</span>
+            <span class="n">a</span><span class="o">.</span><span class="n">path</span> <span class="ow">or</span> <span class="s2">"."</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"objects"</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">nobjects</span><span class="p">,</span>
+                <span class="s2">"objects_seen"</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">nobjects_seen</span><span class="p">,</span>
+                <span class="s2">"stored_bytes"</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">total_bytes</span><span class="p">,</span>
+                <span class="s2">"uncompressed_object_bytes"</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">uncompressed_object_bytes</span><span class="p">,</span>
+                <span class="s2">"sharded"</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">shards</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+                <span class="s2">"key_encoding"</span><span class="p">:</span> <span class="n">a</span><span class="o">.</span><span class="n">key_encoding</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">arrays</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+    <span class="n">manifest</span><span class="o">.</span><span class="n">validate</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">manifest</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="blobmap.partition.diff" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">diff</span>
+
+
+<a href="#blobmap.partition.diff" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span class="nf">diff</span><span class="p">(</span><span class="n">old</span><span class="p">:</span> <span class="n">Manifest</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">new</span><span class="p">:</span> <span class="n">Manifest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Diff</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Compare two manifests by blob id.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>old</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Manifest
+
+
+  
+      dataclass
+   (blobmap.model.Manifest)" href="../model/#blobmap.model.Manifest">Manifest</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The manifest previously in effect, or <code>None</code> for a first run.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>new</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Manifest
+
+
+  
+      dataclass
+   (blobmap.model.Manifest)" href="../model/#blobmap.model.Manifest">Manifest</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The freshly computed manifest.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Diff
+
+
+  
+      dataclass
+   (blobmap.partition.Diff)" href="#blobmap.partition.Diff">Diff</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>Diff</code>. When <code>old</code> is <code>None</code> everything counts as added.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/blobmap/partition.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">441</span>
+<span class="normal">442</span>
+<span class="normal">443</span>
+<span class="normal">444</span>
+<span class="normal">445</span>
+<span class="normal">446</span>
+<span class="normal">447</span>
+<span class="normal">448</span>
+<span class="normal">449</span>
+<span class="normal">450</span>
+<span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">diff</span><span class="p">(</span><span class="n">old</span><span class="p">:</span> <span class="n">Manifest</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">new</span><span class="p">:</span> <span class="n">Manifest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Diff</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Compare two manifests by blob id.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        old: The manifest previously in effect, or `None` for a first run.</span>
+<span class="sd">        new: The freshly computed manifest.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A `Diff`. When `old` is `None` everything counts as added.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">old</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Diff</span><span class="p">(</span><span class="n">added</span><span class="o">=</span><span class="n">new</span><span class="o">.</span><span class="n">blobs</span><span class="p">)</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">old</span><span class="o">.</span><span class="n">by_id</span><span class="p">(),</span> <span class="n">new</span><span class="o">.</span><span class="n">by_id</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">Diff</span><span class="p">(</span>
+        <span class="n">added</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">b</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">a</span><span class="p">),</span>
+        <span class="n">removed</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">a</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">b</span><span class="p">),</span>
+        <span class="n">modified</span><span class="o">=</span><span class="nb">tuple</span><span class="p">((</span><span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">b</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">a</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">b</span> <span class="ow">and</span> <span class="n">a</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">!=</span> <span class="n">b</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span>
+    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../schema/" class="md-footer__link md-footer__link--prev" aria-label="Previous: schema">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                schema
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../resolve/" class="md-footer__link md-footer__link--next" aria-label="Next: resolve">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                resolve
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.copy", "navigation.sections", "navigation.expand", "navigation.footer", "toc.integrate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
