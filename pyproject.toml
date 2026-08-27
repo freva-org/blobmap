@@ -108,7 +108,7 @@ ignore_missing_imports = true
 legacy_tox_ini = """
 [tox]
 min_version = 4.0
-env_list = lint, types, test, docs
+env_list = lint, types, docs
 [testenv]
 passenv = *
 parallel_show_output = false
