@@ -34,7 +34,7 @@ jobs:
       - name: Check the tag matches the package
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          PKG=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/blobmap/version.py)
+          PKG=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' src/blobmap/_version.py)
           if [ "$VERSION" != "$PKG" ]; then
             echo "::error::tag says $VERSION, package says $PKG"
             exit 1
