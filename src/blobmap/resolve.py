@@ -172,7 +172,7 @@ class Trie:
         return dict(self._epochs)
 
     def __len__(self) -> int:
-        """Number of trie nodes, which is one per cut and never per object.
+        """Get the number of trie nodes, one per cut and never per object.
 
         Returns:
             Node count, useful as a sanity check that the trie has not

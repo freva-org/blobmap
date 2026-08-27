@@ -99,7 +99,8 @@ def list_all(store: Store, prefix: str = "") -> Iterator[Entry]:
     """
     for batch in obs.list(store, prefix=prefix or None):
         for meta in batch:
-            yield Entry(str(meta["path"]), int(meta["size"]), _etag(meta.get("e_tag")))
+            yield Entry(str(meta["path"]), int(meta["size"]),
+                        _etag(meta.get("e_tag")))
 
 
 def list_dirs(store: Store, prefix: str = "") -> list[str]:
@@ -169,14 +170,8 @@ def head(store: Store, key: str) -> Entry | None:
     return Entry(str(meta["path"]), int(meta["size"]), _etag(meta.get("e_tag")))
 
 
-def put_bytes(
-    store: Store,
-    key: str,
-    body: bytes,
-    *,
-    etag: str | None = None,
-    expect_absent: bool = False,
-) -> str | None:
+def put_bytes(store: Store, key: str, body: bytes, *,
+              etag: str | None = None, expect_absent: bool = False) -> str | None:
     """Write an object, optionally conditionally.
 
     Args:
@@ -220,11 +215,9 @@ def put_bytes(
         raise Conflict(f"{key} already exists") from exc
     except NotImplementedError:
         # LocalStore has no update-if-etag as of obstore 0.11
-        log.warning(
-            "%s: no conditional update; concurrent partitioning of "
-            "the same scope will last-writer-win",
-            type(store).__name__,
-        )
+        log.warning("%s: no conditional update; concurrent partitioning of "
+                    "the same scope will last-writer-win",
+                    type(store).__name__)
         result = obs.put(store, key, body, mode="overwrite")
     except Exception as exc:  # noqa: BLE001 - backend-specific precondition types
         if _is_precondition(exc):
@@ -234,15 +227,20 @@ def put_bytes(
 
 
 def _etag(value: Any) -> str | None:
-    """Normalise an etag, stripping the quotes S3 wraps them in.
+    """Pass an etag through unchanged.
+
+    Deliberately opaque. An earlier version stripped the surrounding quotes
+    for tidiness, which broke every conditional update on obstore 0.11.1: it
+    returns etags quoted and expects the same string back. An etag is a token
+    to hand back, not a value to normalise, so nothing here interprets it.
 
     Args:
         value: Raw etag from `obstore`, possibly `None`.
 
     Returns:
-        The unquoted etag, or `None`.
+        The etag as given, or `None`.
     """
-    return str(value).strip('"') if value else None
+    return str(value) if value else None
 
 
 def _is_precondition(exc: BaseException) -> bool:
@@ -258,6 +256,5 @@ def _is_precondition(exc: BaseException) -> bool:
         True if this looks like a 409 or 412.
     """
     text = f"{type(exc).__name__} {exc}"
-    return any(
-        s in text for s in ("Precondition", "412", "409", "ConditionalRequestConflict")
-    )
+    return any(s in text for s in ("Precondition", "412", "409",
+                                   "ConditionalRequestConflict"))

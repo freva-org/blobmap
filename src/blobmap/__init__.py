@@ -9,6 +9,7 @@ hierarchy   zarr store -> arrays          LIST-first, never reads a chunk
 discover    scan / event drivers          what feeds the partitioner
 """
 
+from ._version import __version__
 from .discover import Candidate, EventPoller, PollConfig, scan, store_of
 from .hierarchy import (
     DEFAULT_EXCLUDE,
@@ -20,26 +21,26 @@ from .hierarchy import (
 )
 from .manifests import MANIFEST_NAME, ManifestStore, Stored
 from .model import (
-    GiB,
     KEY_ENCODINGS,
     METADATA_BASENAMES,
     SCHEMA_VERSION,
     Array,
     Blob,
     Bucket,
+    GiB,
     Manifest,
     Pin,
     Policy,
 )
-from .pins import NotPartitioned, PinRecord
 from .partition import Diff, bucket_width, diff, partition
+from .pins import NotPartitioned, PinRecord
 from .resolve import Resolution, Trie, resolve
 from .schema import SCHEMA, SchemaError, validate_document
 from .service import NotAdditive, Result, partition_store
 from .storage import Conflict, Entry, Store
-from ._version import __version__
 
 __all__ = [
+    "__version__",
     "GiB",
     "KEY_ENCODINGS",
     "METADATA_BASENAMES",

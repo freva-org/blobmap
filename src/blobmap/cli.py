@@ -14,22 +14,37 @@ Example:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import math
+import os
 import sys
-from typing import Sequence
+from typing import Sequence, Type
 
+from . import pins
+from ._version import __version__
 from .backends import S3Options, StoreUnreachable, diagnose, open_store
 from .discover import scan
 from .hierarchy import DEFAULT_EXCLUDE, read_arrays
 from .manifests import ManifestStore
-from . import pins
-from .model import Array, GiB, Manifest, Policy
+from .model import SCHEMA_VERSION, Array, GiB, Manifest, Policy
+from .report import render, report
 from .resolve import Trie
 from .schema import SCHEMA
 from .service import partition_store
 from .storage import Store
+
+try:
+    from rich_argparse import ArgumentDefaultsRichHelpFormatter
+
+    ArgFormatter: (
+        Type[argparse.ArgumentDefaultsHelpFormatter]
+        | Type[ArgumentDefaultsRichHelpFormatter]
+    ) = ArgumentDefaultsRichHelpFormatter
+except ImportError:  # pragma: no cover - optional dependency
+    ArgFormatter = argparse.ArgumentDefaultsHelpFormatter
+
 
 log = logging.getLogger(__name__)
 
@@ -142,7 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  blobmap --data file:///work --manifests file:///work/.blobmap \\\n"
             "      resolve eur11.zarr/tas/c/5000/0/0\n"
         ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        formatter_class=ArgFormatter,
     )
 
     p.add_argument(
@@ -160,6 +175,12 @@ def build_parser() -> argparse.ArgumentParser:
         "a path such as /work/blobmap. Keys mirror the data paths. Must "
         "be writable; a local directory is created if missing. Required "
         "for every command except schema.",
+    )
+    p.add_argument(
+        "--version",
+        action="version",
+        version=f"blobmap {__version__} (manifest schema v{SCHEMA_VERSION})",
+        help="print the version and the manifest schema version it speaks.",
     )
     p.add_argument(
         "-v",
@@ -219,7 +240,11 @@ def build_parser() -> argparse.ArgumentParser:
         "on-premise gateways want this off, which is the default.",
     )
 
-    sub = p.add_subparsers(dest="cmd", required=True, metavar="COMMAND")
+    sub = p.add_subparsers(
+        dest="cmd",
+        required=True,
+        metavar="COMMAND",
+    )
 
     q = sub.add_parser(
         "partition",
@@ -228,6 +253,7 @@ def build_parser() -> argparse.ArgumentParser:
         "manifest. Repartitioning is additive: existing blobs "
         "are pinned, so ids and the tape addresses behind them "
         "survive.",
+        formatter_class=ArgFormatter,
     )
     q.add_argument(
         "scope",
@@ -262,6 +288,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Walk --data and report every zarr store, marking which "
         "already have a manifest. Descent stops at a store "
         "boundary.",
+        formatter_class=ArgFormatter,
     )
     s.add_argument(
         "root",
@@ -287,6 +314,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Load every manifest and resolve keys against them. The "
         "fastest way to check that a store is partitioned the "
         "way you think it is.",
+        formatter_class=ArgFormatter,
     )
     r.add_argument(
         "keys",
@@ -302,6 +330,7 @@ def build_parser() -> argparse.ArgumentParser:
         "show",
         help="list known scopes and epochs",
         description="One line per manifest: epoch, blob count and scope.",
+        formatter_class=ArgFormatter,
     )
 
     pin = sub.add_parser(
@@ -310,6 +339,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="A pin is set once and persists, rather than being a flag "
         "passed on every partition run. Whether a dataset stays "
         "hot should not depend on shell history.",
+        formatter_class=ArgFormatter,
     )
     pin_sub = pin.add_subparsers(dest="pin_cmd", required=True, metavar="ACTION")
 
@@ -318,6 +348,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="pin a prefix",
         description="Records who pinned what, why, and optionally when it "
         "should be reviewed.",
+        formatter_class=ArgFormatter,
     )
     pin_add.add_argument(
         "scope",
@@ -355,6 +386,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="remove a pin",
         description="Makes the prefix eligible again. Nothing is archived "
         "until the tiering policy runs.",
+        formatter_class=ArgFormatter,
     )
     pin_rm.add_argument("scope", metavar="SCOPE")
     pin_rm.add_argument("prefix", metavar="PREFIX", nargs="?", default="")
@@ -365,6 +397,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Expired pins first, then open-ended ones, then the rest. "
         "Those first two categories are how a hot pool quietly "
         "fills.",
+        formatter_class=ArgFormatter,
     )
     pin_show.add_argument(
         "scope", metavar="SCOPE", nargs="?", help="restrict to one scope. Default: all."
@@ -373,11 +406,34 @@ def build_parser() -> argparse.ArgumentParser:
         "--expired", action="store_true", help="only pins whose review date has passed."
     )
 
+    rep = sub.add_parser(
+        "report",
+        help="how much data no policy can move",
+        description="Classifies every object against the manifests. The "
+        "number that matters is 'unmanaged': data nothing claims, "
+        "which grows silently and is invisible otherwise.",
+        formatter_class=ArgFormatter,
+    )
+    rep.add_argument(
+        "root",
+        nargs="?",
+        default="",
+        metavar="PREFIX",
+        help="prefix to count, relative to --data. Default: everything.",
+    )
+    rep.add_argument(
+        "--per-bucket",
+        action="store_true",
+        help="one row per top-level prefix, rather than one total. Useful "
+        "when --data is a gateway root rather than a single bucket.",
+    )
+
     sub.add_parser(
         "schema",
         help="print the manifest JSON Schema",
         description="Write the schema to stdout. This is the contract for "
         "any consumer, including ones not written in Python.",
+        formatter_class=ArgFormatter,
     )
     return p
 
@@ -512,7 +568,6 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
     Returns:
         Process exit code.
     """
-
     exclude = (
         DEFAULT_EXCLUDE if args.exclude is None else tuple(e for e in args.exclude if e)
     )
@@ -560,6 +615,19 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
             res = trie.lookup(key)
             print(f"{key}  ->  {res.blob_id or res.kind}")
 
+    elif args.cmd == "report":
+        if args.per_bucket:
+            from .storage import list_dirs
+
+            prefixes = [
+                p.strip("/")
+                for p in list_dirs(data, f"{args.root}/" if args.root else "")
+            ]
+            reports = [report(data, store, p) for p in prefixes]
+        else:
+            reports = [report(data, store, args.root)]
+        print(render(reports))
+
     elif args.cmd == "pin":
         return _pin(args, store)
 
@@ -576,5 +644,25 @@ def _dispatch(args: argparse.Namespace, data: Store, store: ManifestStore) -> in
     return 0
 
 
+def _run() -> int:
+    """Entry point wrapper that treats a closed pipe as success.
+
+    `blobmap schema | head` closes the pipe early, which is normal shell use
+    and should not produce a traceback.
+    """
+    try:
+        return main()
+    except BrokenPipeError:
+        # point fd 1 at devnull so the interpreter's exit-time flush does not
+        # raise a second time. Suppressed because under a capturing test
+        # harness stdout has no real file descriptor.
+        with contextlib.suppress(Exception):
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        return 0
+    except KeyboardInterrupt:
+        print("interrupted", file=sys.stderr)
+        return 130
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_run())

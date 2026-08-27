@@ -27,8 +27,8 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any
 
-from .schema import validate_document
 from ._version import __version__
+from .schema import validate_document
 
 SCHEMA_VERSION = 3
 VERSION = __version__
@@ -743,7 +743,7 @@ class Manifest:
         return replace(self, epoch=self.epoch + 1, generated_at=now(), **changes)
 
     def pin_for(self, key: str) -> Pin | None:
-        """The pin covering a scope-relative key, if any.
+        """Find the pin covering a scope-relative key, if any.
 
         Args:
             key: Scope-relative object key.

@@ -33,8 +33,17 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from .model import (GiB, Array, Blob, Bucket, Manifest, Pin, Policy,
-                    default_hot_always, now)
+from .model import (
+    Array,
+    Blob,
+    Bucket,
+    GiB,
+    Manifest,
+    Pin,
+    Policy,
+    default_hot_always,
+    now,
+)
 
 log = logging.getLogger(__name__)
 

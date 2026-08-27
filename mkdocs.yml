@@ -1,14 +1,36 @@
-site_name: blobmap
+site_name: Blobmap
 site_description: Decide which zarr objects move to tape together
-repo_url: https://github.com/DKRZ/blobmap
+repo_url: https://github.com/freva-org/blobmap
+repo_name: freva-org/blobmap
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
   features: [navigation.sections, content.code.copy, toc.integrate]
   palette:
-    - scheme: default
-      toggle: {icon: material/weather-night, name: dark mode}
-    - scheme: slate
-      toggle: {icon: material/weather-sunny, name: light mode}
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.expand
+    - navigation.footer
+    - toc.integrate
+    - search.highlight
+    - search.suggest
+
 
 nav:
   - Home: index.md
