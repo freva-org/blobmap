@@ -1,12 +1,15 @@
 site_name: Blobmap
 site_description: Decide which zarr objects move to tape together
+site_url: https://freva-org.github.io/blobmap/
 repo_url: https://github.com/freva-org/blobmap
 repo_name: freva-org/blobmap
+edit_uri: edit/main/docs/
 theme:
   name: material
   logo: assets/logo.svg
   favicon: assets/favicon.svg
-  features: [navigation.sections, content.code.copy, toc.integrate]
+  icon:
+    repo: fontawesome/brands/github
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -31,12 +34,17 @@ theme:
     - search.highlight
     - search.suggest
 
+extra:
+  version:
+    provider: mike
+    alias: true
 
 nav:
   - Home: index.md
   - Design: design.md
   - Operations: operations.md
   - Internals: internals.md
+  - Changelog: changelog.md
   - Contributing: contributing.md
   - Reference:
       - model: reference/model.md
@@ -45,6 +53,8 @@ nav:
       - resolve: reference/resolve.md
       - hierarchy: reference/hierarchy.md
       - manifests: reference/manifests.md
+      - pins: reference/pins.md
+      - report: reference/report.md
       - storage: reference/storage.md
       - backends: reference/backends.md
       - service: reference/service.md
@@ -75,4 +85,7 @@ markdown_extensions:
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight
+  - pymdownx.snippets
   - tables
+  - toc:
+      permalink: true

@@ -8,21 +8,15 @@ description = "Decide which zarr objects move to tape together, and read that ba
 readme = "README.md"
 dynamic = ["version"]
 license = {file = "LICENSE"}
-authors = [
-    {name = "DKRZ", email = "data@dkrz.de"},
-]
+authors = [{name = "DKRZ", email = "data@dkrz.de"}]
+maintainers = [{name = "DKRZ", email = "data@dkrz.de"}]
 keywords = ["zarr", "s3", "hsm", "tape", "tiering", "climate"]
-maintainers = [
-    {name = "DKRZ", email = "data@dkrz.de"},
-]
-
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -31,20 +25,35 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.11"
-dependencies = ["obstore>=0.11", "jsonschema"]
+
+# one runtime dependency, deliberately. The manifest schema is validated by a
+# walker in schema.py that is stdlib only; jsonschema is used in the tests to
+# cross-check that walker against a real implementation, which is a dev
+# concern rather than something a consumer should have to install.
+dependencies = ["obstore>=0.11"]
+
+[project.urls]
+Documentation = "https://freva-org.github.io/blobmap/"
+Source = "https://github.com/freva-org/blobmap"
+Changelog = "https://github.com/freva-org/blobmap/blob/main/CHANGELOG.md"
+Schema = "https://waterpark.dkrz.de/blobmap/manifest-v3.schema.json"
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-cov", "mypy"]
+pretty = ["rich-argparse>=1.5"]
+tests = [
+    "pytest",
+    "pytest-cov",
+    "jsonschema",       # cross-checks the hand-written schema walker
+    "rich-argparse",    # so the themed help path is exercised, not skipped
+]
 docs = [
     "mkdocs>=1.6,<2",
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
     "pymdown-extensions>=10.0",
-    "mkdocs-material[imaging]>=9.7",
-    "pillow",
-
+    "mike",
+    "black",            # mkdocstrings formats signatures with it
 ]
-pretty = ["rich-argparse>=1.5"]
 
 [project.scripts]
 blobmap = "blobmap.cli:_run"
@@ -52,28 +61,27 @@ blobmap = "blobmap.cli:_run"
 [tool.pydocstyle]
 add-ignore = "D407, D105, D107"
 
-[tool.setuptools.packages.find]
-include = ["blobmap*"]
-
 [tool.pytest.ini_options]
-testpaths = ["tests", "blobmap"]
+# src layout: the package lives at src/blobmap, and the doctests in it are
+# part of the suite
+testpaths = ["tests", "src/blobmap"]
 addopts = "--doctest-modules"
-pythonpath = ["."]
+pythonpath = ["src", "."]
 
 [tool.mypy]
 strict = true
 warn_unused_ignores = true
-files = ["blobmap"]
+files = ["src/blobmap"]
 
 [[tool.mypy.overrides]]
-module = ["obstore.*"]
+module = ["obstore.*", "rich_argparse.*"]
 ignore_missing_imports = true
 
 [tool.tox]
 legacy_tox_ini = """
 [tox]
 min_version = 4.0
-env_list = docs, types, lint
+env_list = lint, types, test, docs
 [testenv]
 passenv = *
 parallel_show_output = false
@@ -88,18 +96,20 @@ deps = black
        bandit[toml]
 commands =
     python3 -m isort --check --profile black -t py313 -l 79 src
+    python3 -m black --check src
     python3 -m flake8 src --count --max-complexity=10 --ignore=F405,F403,E704,W503,C901 --max-line-length=120 --statistics --show-source
-    codespell {posargs: --quiet-level=2} src/
+    codespell {posargs: --quiet-level=2} src/ docs/
     python3 -m pydocstyle src/blobmap
     bandit -r src/blobmap --severity-level medium --confidence-level high
+
 [testenv:test]
 setenv =
     VIRTUALENV_SYSTEM_SITE_PACKAGES=true
 description = "Run the unit tests."
 deps = -e .[tests]
 commands =
-    python3 -m pytest -vv --cov=blobmap --cov-report=html:coverage_report --junitxml report.xml --cov-report xml tests/
-    python3 -m coverage report --fail-under=65 --precision=2
+    python3 -m pytest -vv --cov=blobmap --cov-report=html:coverage_report --junitxml report.xml --cov-report xml
+    python3 -m coverage report --fail-under=90 --precision=2
 
 [testenv:docs]
 description = Build docs. Usage: tox -e docs
@@ -114,18 +124,13 @@ commands =
 description = Serve docs locally.
 deps =
     -e .[docs]
-    codespell
 commands =
-    codespell --quiet-level=2 docs
     mkdocs serve -f mkdocs.yml --strict -a localhost:8000 --watch docs
 
 [testenv:types]
 description = Run mypy in strict mode
-deps = -e .[pretty]
+deps = -e .[pretty,tests]
     mypy>=1.11
-    types-requests
-    numpy
-    xarray
 commands =
-    mypy src/blobmap
+    mypy
 """

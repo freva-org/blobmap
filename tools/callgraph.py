@@ -23,7 +23,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGE = ROOT / "blobmap"
+
+
+def _package() -> Path:
+    """Locate the package, whether the layout is flat or src-based."""
+    for candidate in (ROOT / "src" / "blobmap", ROOT / "blobmap"):
+        if (candidate / "__init__.py").is_file():
+            return candidate
+    raise SystemExit("cannot find the blobmap package under {}".format(ROOT))
+
+
+PACKAGE = _package()
 
 
 @dataclass

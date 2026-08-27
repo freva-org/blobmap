@@ -8,6 +8,7 @@ or annotated a new function with `Any` out of habit.
 from __future__ import annotations
 
 import inspect
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -66,9 +67,13 @@ def run_mypy(probe: Path, cache: Path) -> subprocess.CompletedProcess[str]:
     Returns:
         The completed process.
     """
+    # MYPYPATH so the probe can import blobmap under either layout; without
+    # it mypy reports a missing import rather than the type error under test
+    source = ROOT / "src" if (ROOT / "src" / "blobmap").is_dir() else ROOT
     return subprocess.run(
         [sys.executable, "-m", "mypy", "--cache-dir", str(cache), str(probe)],
-        capture_output=True, text=True, cwd=ROOT)
+        capture_output=True, text=True, cwd=ROOT,
+        env={**os.environ, "MYPYPATH": str(source)})
 
 
 def check(probe: Path, cache: Path) -> str:
