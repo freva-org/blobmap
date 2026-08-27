@@ -29,7 +29,7 @@ jobs:
           python-version: "3.x"
 
       - name: Install dependencies
-        # mike is in the docs extra now, so it does not need naming here
+        # mike is in the docs extra, so it does not need naming here
         run: pip install -e ".[docs]"
 
       # On a pull request, prove the docs build and publish nothing. --strict
@@ -56,5 +56,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          mike deploy --push --update-aliases --alias-type=copy "$VERSION" latest
+          # Published per *minor* version, so patch releases overwrite in
+          # place and the version selector stays short. Switching this scheme
+          # later leaves both in versions.json, so it is worth keeping.
+          MINOR="${VERSION%.*}"
+          mike deploy --push --update-aliases --alias-type=copy "$MINOR" latest
           mike set-default --push latest
