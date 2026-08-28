@@ -2,78 +2,82 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/changelog/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/contributing/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/design/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/internals/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/operations/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
+    </url>
+    <url>
+         <loc>https://freva-org.github.io/blobmap/0.5/schema/</loc>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/backends/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/cli/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/discover/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/hierarchy/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/manifests/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/model/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/partition/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/pins/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/report/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/resolve/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/schema/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/service/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
     <url>
          <loc>https://freva-org.github.io/blobmap/0.5/reference/storage/</loc>
-         <lastmod>2026-08-27</lastmod>
+         <lastmod>2026-08-28</lastmod>
     </url>
 </urlset>
