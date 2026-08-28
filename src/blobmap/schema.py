@@ -30,7 +30,7 @@ from typing import Any
 #: JSON Schema draft 2020-12 for a manifest document.
 SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://waterpark.dkrz.de/blobmap/manifest-v3.schema.json",
+    "$id": "https://waterpark.dkrz.de/tech/blobmap/manifest-v3.schema.json",
     "title": "blobmap manifest",
     "description": (
         "Blob definitions for one scope. Pure definition: this changes only "

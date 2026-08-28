@@ -43,6 +43,7 @@ nav:
   - Home: index.md
   - Design: design.md
   - Operations: operations.md
+  - Schema: schema.md
   - Internals: internals.md
   - Changelog: changelog.md
   - Contributing: contributing.md
